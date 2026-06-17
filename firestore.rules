@@ -1,0 +1,91 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    function ownsUserData() {
+      return signedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    function createsOwnUserData() {
+      return signedIn() && request.resource.data.userId == request.auth.uid;
+    }
+
+    match /users/{userId} {
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.uid == userId
+        && request.resource.data.role == "user";
+      allow read: if signedIn() && (request.auth.uid == userId || isAdmin());
+      allow update: if signedIn()
+        && (
+          isAdmin()
+          || (
+            request.auth.uid == userId
+            && request.resource.data.uid == userId
+            && request.resource.data.role == resource.data.role
+          )
+        );
+      allow delete: if isAdmin();
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /cart/{cartItemId} {
+      allow read, update, delete: if ownsUserData() || isAdmin();
+      allow create: if createsOwnUserData() || isAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow read: if ownsUserData() || isAdmin();
+      allow create: if createsOwnUserData();
+      allow update, delete: if isAdmin();
+    }
+
+    match /wishlist/{wishlistItemId} {
+      allow read, update, delete: if ownsUserData() || isAdmin();
+      allow create: if createsOwnUserData() || isAdmin();
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if createsOwnUserData();
+      allow update, delete: if ownsUserData() || isAdmin();
+    }
+
+    match /payments/{paymentId} {
+      allow read: if ownsUserData() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /checkoutSessions/{checkoutId} {
+      allow read: if ownsUserData() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /adminNotifications/{notificationId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /paymentFailures/{failureId} {
+      allow read, write: if isAdmin();
+    }
+  }
+}
