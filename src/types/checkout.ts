@@ -1,6 +1,6 @@
 import type { ShippingAddress } from "@/types/ecommerce";
 
-export type PaymentMethod = "stripe" | "cash_on_delivery";
+export type PaymentMethod = "payhere" | "cash_on_delivery";
 
 export type CheckoutForm = ShippingAddress & {
   saveAddress: boolean;

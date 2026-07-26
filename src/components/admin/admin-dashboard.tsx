@@ -8,13 +8,16 @@ import {
   Bell,
   Boxes,
   CheckCircle2,
+  Clipboard,
   Edit3,
   PackagePlus,
   ReceiptText,
   Search,
+  Send,
   ShieldCheck,
   ShoppingBag,
   Star,
+  Truck,
   Trash2,
   Upload,
   X,
@@ -26,12 +29,12 @@ import Image from "next/image";
 import { catalogProducts, type CatalogProduct } from "@/config/products";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { createProduct, deleteProduct, getProducts, upsertProduct } from "@/lib/firebase/products";
-import { getOrders, updateOrderStatus } from "@/lib/firebase/orders";
+import { getOrders, updateOrderFulfillment, updateOrderPaymentStatus, updateOrderStatus } from "@/lib/firebase/orders";
 import { getUsers, updateUserProfile } from "@/lib/firebase/users";
 import { sendOrderWhatsAppNotification } from "@/lib/notifications/whatsapp-client";
 import { cn } from "@/lib/utils";
 import { createEmptyProductForm, productFormToInput, type AdminTab, type ProductFormState } from "@/types/admin";
-import type { Order, OrderStatus, Product } from "@/types/ecommerce";
+import type { Order, OrderFulfillmentUpdate, OrderStatus, PaymentStatus, Product } from "@/types/ecommerce";
 import type { UserProfile, UserRole } from "@/types/user";
 
 const tabs: Array<{ id: AdminTab; label: string }> = [
@@ -44,8 +47,15 @@ const tabs: Array<{ id: AdminTab; label: string }> = [
 
 const orderFulfillmentStatuses: OrderStatus[] = ["approved", "processing", "shipped", "delivered", "cancelled"];
 const orderStatusOptions = orderFulfillmentStatuses.map((status) => ({ label: getOrderStatusLabel(status), value: status }));
+const paymentStatusOptions: Array<{ label: string; value: PaymentStatus }> = [
+  { label: "Unpaid", value: "unpaid" },
+  { label: "Paid", value: "paid" },
+  { label: "Failed", value: "failed" },
+  { label: "Refunded", value: "refunded" },
+];
 const userRoleOptions = [
   { label: "User", value: "user" },
+  { label: "Shipper", value: "shipper" },
   { label: "Admin", value: "admin" },
 ];
 const adminNotificationStorageKey = "rvsn-admin-read-notifications-v1";
@@ -57,6 +67,14 @@ type AdminNotification = {
   title: string;
   message: string;
   timestamp: number;
+};
+
+type OrderDetailsForm = {
+  status: OrderStatus;
+  courierName: string;
+  trackingNumber: string;
+  trackingUrl: string;
+  adminNote: string;
 };
 
 export function AdminDashboard() {
@@ -379,6 +397,92 @@ export function AdminDashboard() {
     }
   }
 
+  async function saveOrderFulfillment(orderId: string | undefined, data: OrderFulfillmentUpdate) {
+    if (!orderId) {
+      return;
+    }
+
+    const currentOrder = orders.find((order) => order.id === orderId);
+    setIsSaving(true);
+    try {
+      await withTimeout(updateOrderFulfillment(orderId, data), "Order fulfillment update timed out. Check your admin role and Firestore rules.");
+      setOrders((current) => current.map((order) => (order.id === orderId ? { ...order, ...data } : order)));
+      if (currentOrder && data.status && data.status !== currentOrder.status) {
+        void sendOrderWhatsAppNotification({
+          event: "order_status_changed",
+          orderId,
+          order: {
+            ...currentOrder,
+            ...data,
+            status: data.status,
+          },
+          previousStatus: currentOrder.status,
+          nextStatus: data.status,
+        });
+      }
+      setNoticeTone("success");
+      setNotice("Order fulfillment details updated.");
+    } catch (error) {
+      setNoticeTone("error");
+      setNotice(getAdminErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function changeOrderPaymentStatus(orderId: string | undefined, paymentStatus: PaymentStatus) {
+    if (!orderId) {
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await withTimeout(updateOrderPaymentStatus(orderId, paymentStatus), "Payment update timed out. Check your admin role and Firestore rules.");
+      setOrders((current) =>
+        current.map((order) =>
+          order.id === orderId
+            ? {
+                ...order,
+                paymentStatus,
+                payment: order.payment ? { ...order.payment, status: paymentStatus } : order.payment,
+              }
+            : order,
+        ),
+      );
+      setNoticeTone("success");
+      setNotice(paymentStatus === "paid" ? "Payment marked as paid." : "Payment status updated.");
+    } catch (error) {
+      setNoticeTone("error");
+      setNotice(getAdminErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function bulkChangeOrderStatus(orderIds: string[], status: OrderStatus) {
+    const uniqueOrderIds = Array.from(new Set(orderIds.filter(Boolean)));
+
+    if (!uniqueOrderIds.length) {
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await withTimeout(
+        Promise.all(uniqueOrderIds.map((orderId) => updateOrderStatus(orderId, status))),
+        "Bulk order update timed out. Check your admin role and Firestore rules.",
+      );
+      setOrders((current) => current.map((order) => (order.id && uniqueOrderIds.includes(order.id) ? { ...order, status } : order)));
+      setNoticeTone("success");
+      setNotice(`${uniqueOrderIds.length} ${uniqueOrderIds.length === 1 ? "order" : "orders"} updated.`);
+    } catch (error) {
+      setNoticeTone("error");
+      setNotice(getAdminErrorMessage(error));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   async function changeUserRole(uid: string, role: UserRole) {
     setIsSaving(true);
     try {
@@ -517,7 +621,16 @@ export function AdminDashboard() {
                 seedStarterProducts={seedStarterProducts}
               />
             ) : null}
-            {activeTab === "orders" ? <OrdersPanel orders={orders} changeOrderStatus={changeOrderStatus} /> : null}
+            {activeTab === "orders" ? (
+              <OrdersPanel
+                orders={orders}
+                isSaving={isSaving}
+                changeOrderStatus={changeOrderStatus}
+                saveOrderFulfillment={saveOrderFulfillment}
+                changeOrderPaymentStatus={changeOrderPaymentStatus}
+                bulkChangeOrderStatus={bulkChangeOrderStatus}
+              />
+            ) : null}
             {activeTab === "users" ? <UsersPanel users={users} changeUserRole={changeUserRole} /> : null}
             {activeTab === "inventory" ? <InventoryPanel products={products} /> : null}
           </motion.div>
@@ -1090,14 +1203,90 @@ function ProductsPanel(props: {
   );
 }
 
-function OrdersPanel({ orders, changeOrderStatus }: { orders: Order[]; changeOrderStatus: (orderId: string | undefined, status: OrderStatus) => void }) {
+function OrdersPanel({
+  orders,
+  isSaving,
+  changeOrderStatus,
+  saveOrderFulfillment,
+  changeOrderPaymentStatus,
+  bulkChangeOrderStatus,
+}: {
+  orders: Order[];
+  isSaving: boolean;
+  changeOrderStatus: (orderId: string | undefined, status: OrderStatus) => void;
+  saveOrderFulfillment: (orderId: string | undefined, data: OrderFulfillmentUpdate) => void;
+  changeOrderPaymentStatus: (orderId: string | undefined, paymentStatus: PaymentStatus) => void;
+  bulkChangeOrderStatus: (orderIds: string[], status: OrderStatus) => void;
+}) {
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [bulkStatus, setBulkStatus] = useState<OrderStatus>("processing");
+  const [openOrder, setOpenOrder] = useState<Order | null>(null);
+  const selectableOrders = orders.filter((order) => order.id);
+  const selectedCount = selectedOrderIds.length;
+
+  function toggleOrder(orderId?: string) {
+    if (!orderId) {
+      return;
+    }
+
+    setSelectedOrderIds((current) =>
+      current.includes(orderId) ? current.filter((id) => id !== orderId) : [...current, orderId],
+    );
+  }
+
+  function toggleAll() {
+    setSelectedOrderIds((current) =>
+      current.length === selectableOrders.length ? [] : selectableOrders.map((order) => order.id as string),
+    );
+  }
+
   return (
     <Panel title="Manage orders" eyebrow="Fulfillment">
+      <div className="mb-4 grid gap-3 rounded-[22px] border border-white/10 bg-white/[0.045] p-3 sm:grid-cols-[auto_1fr_auto] sm:items-center">
+        <button
+          type="button"
+          onClick={toggleAll}
+          className="h-11 rounded-full border border-white/12 bg-white/8 px-4 text-sm font-semibold text-white transition hover:border-violet-200/45 hover:bg-white/14"
+        >
+          {selectedCount === selectableOrders.length && selectableOrders.length ? "Clear selection" : "Select all"}
+        </button>
+        <p className="text-sm font-semibold text-violet-100/58">
+          {selectedCount ? `${selectedCount} selected for bulk fulfillment.` : "Select orders to update many deliveries at once."}
+        </p>
+        <div className="grid gap-2 sm:grid-cols-[190px_auto]">
+          <CustomSelect
+            value={bulkStatus}
+            options={orderStatusOptions}
+            onChange={(value) => setBulkStatus(value as OrderStatus)}
+          />
+          <button
+            type="button"
+            disabled={!selectedCount || isSaving}
+            onClick={() => void bulkChangeOrderStatus(selectedOrderIds, bulkStatus)}
+            className="h-12 rounded-full bg-white px-5 text-sm font-semibold text-black transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/32"
+          >
+            Apply bulk status
+          </button>
+        </div>
+      </div>
       <div className="grid gap-3">
         {orders.map((order) => (
           <article key={order.id} className="grid gap-4 rounded-[24px] border border-white/12 bg-[linear-gradient(135deg,rgba(255,255,255,0.075),rgba(255,255,255,0.035))] p-4 shadow-xl shadow-black/18 backdrop-blur-xl lg:grid-cols-[minmax(0,1fr)_auto_240px] lg:items-center">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleOrder(order.id)}
+                  className={cn(
+                    "grid size-8 place-items-center rounded-full border text-xs font-black transition",
+                    order.id && selectedOrderIds.includes(order.id)
+                      ? "border-violet-200 bg-violet-200 text-black"
+                      : "border-white/12 bg-white/8 text-white/50 hover:border-white/35 hover:text-white",
+                  )}
+                  aria-label={`Select order ${order.orderNumber ?? order.id}`}
+                >
+                  {order.id && selectedOrderIds.includes(order.id) ? <CheckCircle2 size={16} /> : null}
+                </button>
                 <p className="text-base font-semibold tracking-[-0.02em] text-white">{order.shippingAddress.name}</p>
                 <span className="rounded-full border border-white/10 bg-white/8 px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-violet-100/70">
                   {order.items.length} {order.items.length === 1 ? "item" : "items"}
@@ -1111,12 +1300,20 @@ function OrdersPanel({ orders, changeOrderStatus }: { orders: Order[]; changeOrd
                 <span>${order.total}</span>
                 <span>{order.paymentMethod ?? "cash_on_delivery"}</span>
                 <span>{order.paymentStatus ?? "unpaid"}</span>
+                {order.trackingNumber ? <span>Track: {order.trackingNumber}</span> : null}
               </div>
+              <button
+                type="button"
+                onClick={() => setOpenOrder(order)}
+                className="mt-3 inline-flex h-9 items-center gap-2 rounded-full border border-white/12 bg-white/8 px-3 text-xs font-semibold text-white transition hover:border-violet-200/45 hover:bg-white/14"
+              >
+                <ReceiptText size={15} /> View details
+              </button>
             </div>
             <span className={cn("w-fit px-3 py-2 text-xs font-black uppercase tracking-[0.14em]", getOrderStatusClassName(order.status))}>
               {getOrderStatusLabel(order.status)}
             </span>
-            <div className="min-w-0">
+            <div className="grid min-w-0 gap-2">
               <CustomSelect
                 label="Update status"
                 value={orderFulfillmentStatuses.includes(order.status) ? order.status : ""}
@@ -1124,12 +1321,238 @@ function OrdersPanel({ orders, changeOrderStatus }: { orders: Order[]; changeOrd
                 options={orderStatusOptions}
                 onChange={(value) => changeOrderStatus(order.id, value as OrderStatus)}
               />
+              {order.paymentMethod === "cash_on_delivery" || !order.paymentMethod ? (
+                <button
+                  type="button"
+                  disabled={order.paymentStatus === "paid" || isSaving}
+                  onClick={() => void changeOrderPaymentStatus(order.id, "paid")}
+                  className="h-11 rounded-full border border-emerald-200/24 bg-emerald-300/10 px-4 text-sm font-semibold text-emerald-50 transition hover:border-emerald-200/50 hover:bg-emerald-300/16 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/6 disabled:text-white/32"
+                >
+                  {order.paymentStatus === "paid" ? "COD paid" : "Mark COD paid"}
+                </button>
+              ) : null}
             </div>
           </article>
         ))}
       </div>
+      <OrderDetailsModal
+        order={openOrder}
+        isSaving={isSaving}
+        onClose={() => setOpenOrder(null)}
+        onSave={saveOrderFulfillment}
+        onPaymentChange={changeOrderPaymentStatus}
+      />
     </Panel>
   );
+}
+
+function OrderDetailsModal({
+  order,
+  isSaving,
+  onClose,
+  onSave,
+  onPaymentChange,
+}: {
+  order: Order | null;
+  isSaving: boolean;
+  onClose: () => void;
+  onSave: (orderId: string | undefined, data: OrderFulfillmentUpdate) => void;
+  onPaymentChange: (orderId: string | undefined, paymentStatus: PaymentStatus) => void;
+}) {
+  const [form, setForm] = useState<OrderDetailsForm>(() => createOrderDetailsForm(order));
+
+  useEffect(() => {
+    setForm(createOrderDetailsForm(order));
+  }, [order]);
+
+  if (!order) {
+    return null;
+  }
+
+  const fullAddress = [
+    order.shippingAddress.line1,
+    order.shippingAddress.line2,
+    order.shippingAddress.city,
+    order.shippingAddress.state,
+    order.shippingAddress.postalCode,
+    order.shippingAddress.country,
+  ].filter(Boolean).join(", ");
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
+
+  function submitFulfillment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onSave(order?.id, {
+      status: form.status,
+      courierName: normalizeOptionalText(form.courierName),
+      trackingNumber: normalizeOptionalText(form.trackingNumber),
+      trackingUrl: normalizeOptionalText(form.trackingUrl),
+      adminNote: normalizeOptionalText(form.adminNote),
+    });
+  }
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="fixed inset-0 z-[80] grid place-items-center bg-black/70 px-4 py-8 backdrop-blur-md"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+      >
+        <motion.section
+          initial={{ opacity: 0, y: 20, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 20, scale: 0.98 }}
+          transition={{ duration: 0.22 }}
+          className="max-h-[88vh] w-full max-w-5xl overflow-y-auto rounded-[30px] border border-white/14 bg-[#08040f]/96 p-5 text-white shadow-2xl shadow-black/60 backdrop-blur-2xl sm:p-6"
+          data-lenis-prevent
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-white/10 pb-5">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-100/48">Order details</p>
+              <h3 className="mt-2 text-3xl font-normal tracking-[-0.05em] text-white">{order.orderNumber ?? order.id}</h3>
+              <p className="mt-2 text-sm font-semibold text-violet-100/56">
+                {order.shippingAddress.name} / {order.shippingAddress.email} / ${order.total}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="grid size-11 place-items-center rounded-full border border-white/12 bg-white/8 text-white transition hover:border-white/35 hover:bg-white/14"
+              aria-label="Close order details"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="grid gap-5">
+              <section className="rounded-[22px] border border-white/10 bg-white/[0.055] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-100/44">Customer location</p>
+                    <p className="mt-2 text-sm font-semibold leading-6 text-white/70">{fullAddress}</p>
+                    {order.shippingAddress.phone ? (
+                      <p className="mt-1 text-sm font-semibold text-violet-100/56">Phone: {order.shippingAddress.phone}</p>
+                    ) : null}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void navigator.clipboard?.writeText(fullAddress)}
+                      className="grid size-10 place-items-center rounded-full border border-white/12 bg-white/8 text-white transition hover:bg-white/14"
+                      aria-label="Copy address"
+                    >
+                      <Clipboard size={17} />
+                    </button>
+                    <a
+                      href={mapsUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-10 items-center gap-2 rounded-full border border-white/12 bg-white/8 px-3 text-xs font-semibold text-white transition hover:bg-white/14"
+                    >
+                      Open maps
+                    </a>
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-[22px] border border-white/10 bg-white/[0.055] p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-100/44">Products</p>
+                <div className="mt-4 grid gap-3">
+                  {order.items.map((item) => (
+                    <article key={`${item.productId}-${item.size}`} className="grid grid-cols-[58px_1fr_auto] items-center gap-3 rounded-[16px] border border-white/10 bg-black/18 p-2">
+                      <div className="relative aspect-square overflow-hidden rounded-[12px] bg-white/8">
+                        {item.image ? <Image src={item.image} alt={item.title} fill unoptimized={item.image.startsWith("data:")} sizes="58px" className="object-cover" /> : null}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-white">{item.title}</p>
+                        <p className="mt-1 text-xs font-semibold text-violet-100/48">{item.brand} / {item.size} / Qty {item.quantity}</p>
+                      </div>
+                      <p className="text-sm font-semibold text-white">${item.price * item.quantity}</p>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            </div>
+
+            <div className="grid gap-5">
+              <form onSubmit={submitFulfillment} className="rounded-[22px] border border-white/10 bg-white/[0.055] p-4">
+                <div className="mb-4 flex items-center gap-2">
+                  <Truck className="text-violet-100" size={18} />
+                  <p className="text-sm font-semibold text-white">Shipping control</p>
+                </div>
+                <div className="grid gap-3">
+                  <CustomSelect
+                    label="Order status"
+                    value={form.status}
+                    options={orderStatusOptions}
+                    onChange={(value) => setForm((current) => ({ ...current, status: value as OrderStatus }))}
+                  />
+                  <AdminInput label="Courier name" value={form.courierName} onChange={(value) => setForm((current) => ({ ...current, courierName: value }))} />
+                  <AdminInput label="Tracking number" value={form.trackingNumber} onChange={(value) => setForm((current) => ({ ...current, trackingNumber: value }))} />
+                  <AdminInput label="Tracking URL" value={form.trackingUrl} onChange={(value) => setForm((current) => ({ ...current, trackingUrl: value }))} />
+                  <label className="grid gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-100/48">Admin note</span>
+                    <textarea
+                      value={form.adminNote}
+                      onChange={(event) => setForm((current) => ({ ...current, adminNote: event.target.value }))}
+                      className="min-h-24 rounded-[18px] border border-white/10 bg-white/[0.055] p-3 text-sm font-semibold text-white outline-none transition placeholder:text-violet-100/34 focus:border-violet-200/45 focus:bg-white/10"
+                    />
+                  </label>
+                  <button
+                    disabled={isSaving}
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-black transition hover:bg-violet-100 disabled:opacity-50"
+                  >
+                    <Send size={16} /> Save shipping details
+                  </button>
+                </div>
+              </form>
+
+              <section className="rounded-[22px] border border-white/10 bg-white/[0.055] p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-100/44">Payment</p>
+                <div className="mt-4 grid gap-3">
+                  <div className="flex items-center justify-between rounded-[16px] border border-white/10 bg-black/18 p-3">
+                    <span className="text-sm font-semibold text-violet-100/62">Method</span>
+                    <span className="text-sm font-semibold text-white">{order.paymentMethod ?? "cash_on_delivery"}</span>
+                  </div>
+                  <CustomSelect
+                    label="Payment status"
+                    value={(order.paymentStatus as PaymentStatus | undefined) ?? "unpaid"}
+                    options={paymentStatusOptions}
+                    onChange={(value) => onPaymentChange(order.id, value as PaymentStatus)}
+                  />
+                  {order.paymentMethod === "cash_on_delivery" || !order.paymentMethod ? (
+                    <button
+                      type="button"
+                      disabled={order.paymentStatus === "paid" || isSaving}
+                      onClick={() => onPaymentChange(order.id, "paid")}
+                      className="h-11 rounded-full border border-emerald-200/24 bg-emerald-300/10 px-4 text-sm font-semibold text-emerald-50 transition hover:border-emerald-200/50 hover:bg-emerald-300/16 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/6 disabled:text-white/32"
+                    >
+                      {order.paymentStatus === "paid" ? "Cash received" : "Mark cash received"}
+                    </button>
+                  ) : null}
+                </div>
+              </section>
+            </div>
+          </div>
+        </motion.section>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+function createOrderDetailsForm(order: Order | null): OrderDetailsForm {
+  return {
+    status: order?.status && orderFulfillmentStatuses.includes(order.status) ? order.status : "approved",
+    courierName: order?.courierName ?? "",
+    trackingNumber: order?.trackingNumber ?? "",
+    trackingUrl: order?.trackingUrl ?? "",
+    adminNote: order?.adminNote ?? "",
+  };
+}
+
+function normalizeOptionalText(value: string) {
+  return value.trim() || null;
 }
 
 function UsersPanel({ users, changeUserRole }: { users: UserProfile[]; changeUserRole: (uid: string, role: UserRole) => void }) {

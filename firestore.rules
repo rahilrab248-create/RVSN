@@ -12,6 +12,12 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
     }
 
+    function isShipper() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "shipper";
+    }
+
     function ownsUserData() {
       return signedIn() && resource.data.userId == request.auth.uid;
     }
@@ -54,9 +60,10 @@ service cloud.firestore {
     }
 
     match /orders/{orderId} {
-      allow read: if ownsUserData() || isAdmin();
+      allow read: if ownsUserData() || isAdmin() || isShipper();
       allow create: if createsOwnUserData();
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin() || isShipper();
+      allow delete: if isAdmin();
     }
 
     match /wishlist/{wishlistItemId} {

@@ -22,8 +22,8 @@ import { CHECKOUT_SHIPPING_FEE, calculateCouponDiscount, findCheckoutCoupon } fr
 import { useAuthPrompt } from "@/contexts/auth-prompt-context";
 import { hasFirebaseClientConfig } from "@/lib/firebase/config";
 import { createOrder } from "@/lib/firebase/orders";
-import { createStripeCheckoutSession } from "@/lib/firebase/payments";
 import { sendOrderWhatsAppNotification } from "@/lib/notifications/whatsapp-client";
+import { createPayHereSession, submitPayHereCheckout } from "@/lib/payments/payhere-client";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useCart } from "@/hooks/use-cart";
@@ -97,6 +97,14 @@ function writeSavedAddresses(addresses: SavedAddress[]) {
   window.localStorage.setItem(savedAddressesKey, JSON.stringify(addresses.slice(0, 4)));
 }
 
+function createCheckoutOrderNumber() {
+  const date = new Date();
+  const datePart = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
+  const randomPart = Math.random().toString(36).slice(2, 7).toUpperCase();
+
+  return `RVSN-${datePart}-${randomPart}`;
+}
+
 export function CheckoutPage() {
   const router = useRouter();
   const { user, profile, isAuthenticated } = useAuth();
@@ -105,7 +113,7 @@ export function CheckoutPage() {
   const { formatPrice, selectedCountry } = useCurrency();
   const [form, setForm] = useState<CheckoutForm>(emptyForm);
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("stripe");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("payhere");
   const [couponInput, setCouponInput] = useState("");
   const [appliedCouponCode, setAppliedCouponCode] = useState<string | null>(null);
   const [couponMessage, setCouponMessage] = useState("");
@@ -208,43 +216,77 @@ export function CheckoutPage() {
     try {
       persistAddress();
 
-      if (paymentMethod === "stripe") {
-        const session = await createStripeCheckoutSession({
-          items,
+      const shippingAddress = {
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        line1: form.line1,
+        line2: form.line2,
+        city: form.city,
+        state: form.state,
+        postalCode: form.postalCode,
+        country: form.country,
+      };
+
+      const orderItems = items.map((item) => ({
+        productId: item.productId,
+        title: item.title,
+        image: item.image,
+        brand: item.brand,
+        size: item.size,
+        quantity: item.quantity,
+        price: item.price,
+      }));
+
+      if (paymentMethod === "payhere") {
+        if (!hasFirebaseClientConfig()) {
+          throw new Error("Online payment needs Firebase order sync before redirect.");
+        }
+
+        const orderNumber = createCheckoutOrderNumber();
+        const orderInput = {
+          userId: user.uid,
+          orderNumber,
+          items: orderItems,
           subtotal,
           shipping,
           discount,
           total,
           currency: selectedCountry.currencyCode,
           couponCode: appliedCoupon?.code ?? null,
-          shippingAddress: {
-            name: form.name,
-            email: form.email,
-            phone: form.phone,
-            line1: form.line1,
-            line2: form.line2,
-            city: form.city,
-            state: form.state,
-            postalCode: form.postalCode,
-            country: form.country,
+          paymentMethod: "payhere",
+          paymentStatus: "unpaid",
+          payment: {
+            provider: "payhere",
+            status: "unpaid",
+            amountTotal: total,
+            currency: selectedCountry.currencyCode,
+            payherePaymentId: null,
+            payhereStatusCode: null,
+            payhereMethod: null,
           },
+          shippingAddress,
+          status: "pending",
+        } as const;
+        const order = await createOrder(orderInput);
+        const session = await createPayHereSession({
+          orderId: order.id,
+          orderNumber,
+          amount: total,
+          currency: selectedCountry.currencyCode,
+          itemsLabel: items.length === 1 ? items[0].title : `RVSN matchday order (${items.length} items)`,
+          customer: shippingAddress,
         });
-        window.location.assign(session.url);
+        await clearCart();
+        submitPayHereCheckout(session);
         return;
       }
 
       if (hasFirebaseClientConfig()) {
         const orderInput = {
           userId: user.uid,
-          items: items.map((item) => ({
-            productId: item.productId,
-            title: item.title,
-            image: item.image,
-            brand: item.brand,
-            size: item.size,
-            quantity: item.quantity,
-            price: item.price,
-          })),
+          orderNumber: createCheckoutOrderNumber(),
+          items: orderItems,
           subtotal,
           shipping,
           discount,
@@ -261,17 +303,7 @@ export function CheckoutPage() {
             stripeSessionId: null,
             stripePaymentIntentId: null,
           },
-          shippingAddress: {
-            name: form.name,
-            email: form.email,
-            phone: form.phone,
-            line1: form.line1,
-            line2: form.line2,
-            city: form.city,
-            state: form.state,
-            postalCode: form.postalCode,
-            country: form.country,
-          },
+          shippingAddress,
           status: "pending",
         } as const;
         const order = await createOrder(orderInput);
@@ -418,11 +450,11 @@ export function CheckoutPage() {
 
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 <PaymentOption
-                  active={paymentMethod === "stripe"}
+                  active={paymentMethod === "payhere"}
                   icon={<CreditCard size={22} />}
-                  title="Stripe online payment"
-                  copy="Fast card checkout for players who want their kit before kickoff."
-                  onClick={() => setPaymentMethod("stripe")}
+                  title="PayHere online payment"
+                  copy="Card checkout for Sri Lankan football shoppers with a verified payment trail."
+                  onClick={() => setPaymentMethod("payhere")}
                 />
                 <PaymentOption
                   active={paymentMethod === "cash_on_delivery"}
@@ -469,8 +501,8 @@ export function CheckoutPage() {
                 <span className="inline-flex items-center gap-2">
                   <Loader2 className="animate-spin" size={18} /> Processing
                 </span>
-              ) : paymentMethod === "stripe" ? (
-                "Pay with Stripe"
+              ) : paymentMethod === "payhere" ? (
+                "Pay with PayHere"
               ) : (
                 "Place COD order"
               )}

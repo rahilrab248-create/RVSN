@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutDashboard, LogOut, Menu, Search, ShoppingBag, UserRound, X } from "lucide-react";
+import { LayoutDashboard, LogOut, Menu, Search, ShoppingBag, Truck, UserRound, X } from "lucide-react";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
@@ -212,6 +212,19 @@ export function Navbar() {
               >
                 <UserRound size={18} />
               </Link>
+              {profile?.role === "admin" || profile?.role === "shipper" ? (
+                <Link
+                  href="/shipper"
+                  className={cn(
+                    "grid size-10 place-items-center rounded-[14px] border border-white/10 bg-white/8 shadow-[inset_0_1px_rgba(255,255,255,0.12)] backdrop-blur-2xl transition",
+                    "!text-white hover:bg-white/14 hover:!text-white",
+                  )}
+                  style={homeReadableStyle}
+                  aria-label="Delivery desk"
+                >
+                  <Truck size={18} />
+                </Link>
+              ) : null}
               {profile?.role === "admin" ? (
                 <Link
                   href="/admin"
@@ -380,6 +393,19 @@ export function Navbar() {
                     Account
                     </Link>
                   </motion.div>
+                  {profile?.role === "admin" || profile?.role === "shipper" ? (
+                    <motion.div variants={mobileMenuItemVariants}>
+                      <Link
+                        href="/shipper"
+                        className={cn(
+                          "aww-mobile-menu-item",
+                        )}
+                        onClick={() => setIsOpen(false)}
+                      >
+                        Delivery desk
+                      </Link>
+                    </motion.div>
+                  ) : null}
                   {profile?.role === "admin" ? (
                     <motion.div variants={mobileMenuItemVariants}>
                       <Link

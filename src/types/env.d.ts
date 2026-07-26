@@ -12,5 +12,10 @@ declare namespace NodeJS {
     FIREBASE_ADMIN_CLIENT_EMAIL?: string;
     FIREBASE_ADMIN_PRIVATE_KEY?: string;
     FIREBASE_ADMIN_STORAGE_BUCKET?: string;
+    PAYHERE_MODE?: "sandbox" | "production";
+    PAYHERE_MERCHANT_ID?: string;
+    PAYHERE_MERCHANT_SECRET?: string;
+    PAYHERE_CURRENCY?: string;
+    PAYHERE_ALLOWED_ORIGINS?: string;
   }
 }

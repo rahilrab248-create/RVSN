@@ -74,9 +74,24 @@ export type Order = {
   total: number;
   currency?: string;
   shippingAddress: ShippingAddress;
+  courierName?: string | null;
+  trackingNumber?: string | null;
+  trackingUrl?: string | null;
+  adminNote?: string | null;
+  shippedAt?: Timestamp | null;
+  deliveredAt?: Timestamp | null;
+  paidAt?: Timestamp | null;
   payment?: PaymentRecord;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+};
+
+export type OrderFulfillmentUpdate = {
+  status?: OrderStatus;
+  courierName?: string | null;
+  trackingNumber?: string | null;
+  trackingUrl?: string | null;
+  adminNote?: string | null;
 };
 
 export type OrderInput = Omit<Order, "id" | "createdAt" | "updatedAt" | "status"> & {
@@ -126,10 +141,13 @@ export type EcommerceUser = UserProfile;
 export type PaymentStatus = "unpaid" | "paid" | "failed" | "refunded";
 
 export type PaymentRecord = {
-  provider: "stripe" | "cash_on_delivery";
+  provider: "stripe" | "payhere" | "cash_on_delivery";
   status: PaymentStatus | string;
   stripeSessionId?: string | null;
   stripePaymentIntentId?: string | null;
+  payherePaymentId?: string | null;
+  payhereStatusCode?: string | null;
+  payhereMethod?: string | null;
   amountTotal: number;
   currency?: string | null;
   paidAt?: Timestamp;

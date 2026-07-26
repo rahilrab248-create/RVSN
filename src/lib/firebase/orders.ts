@@ -19,7 +19,7 @@ import { getFirebaseDb } from "@/lib/firebase/client";
 import { orderPath } from "@/lib/firebase/collections";
 import { orderConverter } from "@/lib/firebase/converters";
 import { ordersCollectionRef } from "@/lib/firebase/shared-refs";
-import type { Order, OrderInput, OrderStatus } from "@/types/ecommerce";
+import type { Order, OrderFulfillmentUpdate, OrderInput, OrderStatus, PaymentStatus } from "@/types/ecommerce";
 
 export async function getUserOrders(userId: string): Promise<Order[]> {
   const count = 25;
@@ -89,10 +89,59 @@ export function updateOrderStatus(orderId: string, status: OrderStatus) {
     throw new Error("Firestore is not configured.");
   }
 
+  const timestampUpdates = getOrderStatusTimestampUpdates(status);
+
   return updateDoc(doc(db, orderPath(orderId)), {
     status,
+    ...timestampUpdates,
     updatedAt: serverTimestamp(),
   });
+}
+
+export function updateOrderFulfillment(orderId: string, data: OrderFulfillmentUpdate) {
+  const db = getFirebaseDb();
+
+  if (!db) {
+    throw new Error("Firestore is not configured.");
+  }
+
+  const timestampUpdates = data.status ? getOrderStatusTimestampUpdates(data.status) : {};
+
+  return updateDoc(doc(db, orderPath(orderId)), {
+    ...data,
+    ...timestampUpdates,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export function updateOrderPaymentStatus(orderId: string, paymentStatus: PaymentStatus) {
+  const db = getFirebaseDb();
+
+  if (!db) {
+    throw new Error("Firestore is not configured.");
+  }
+
+  const paidAt = paymentStatus === "paid" ? serverTimestamp() : null;
+
+  return updateDoc(doc(db, orderPath(orderId)), {
+    paymentStatus,
+    paidAt,
+    "payment.status": paymentStatus,
+    "payment.paidAt": paidAt,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+function getOrderStatusTimestampUpdates(status: OrderStatus) {
+  if (status === "shipped") {
+    return { shippedAt: serverTimestamp() };
+  }
+
+  if (status === "delivered") {
+    return { deliveredAt: serverTimestamp() };
+  }
+
+  return {};
 }
 
 function sortOrders(orders: Order[]) {

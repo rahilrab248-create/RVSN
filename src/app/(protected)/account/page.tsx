@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Clock, Loader2, Mail, PackageCheck, RefreshCcw, ShieldCheck, Truck, UserRound, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, ExternalLink, Loader2, Mail, PackageCheck, RefreshCcw, ShieldCheck, Truck, UserRound, XCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
@@ -207,6 +207,31 @@ function OrderTrackingCard({ order }: { order: Order }) {
         <SummaryItem label="Items" value={`${order.items.length}`} />
         <SummaryItem label="Ship to" value={`${order.shippingAddress.city}, ${order.shippingAddress.country}`} />
       </div>
+
+      <div className="mt-4 grid gap-3 rounded-[18px] border border-white/10 bg-black/18 p-4 sm:grid-cols-2 lg:grid-cols-4">
+        <SummaryItem label="Payment method" value={formatOrderPaymentMethod(order.paymentMethod)} />
+        <SummaryItem label="Payment status" value={formatOrderPaymentStatus(order.paymentStatus)} />
+        <SummaryItem label="Courier" value={order.courierName || "Waiting assignment"} />
+        <SummaryItem label="Tracking" value={order.trackingNumber || "Not added yet"} />
+      </div>
+
+      {order.trackingUrl || order.adminNote ? (
+        <div className="mt-4 flex flex-col gap-3 rounded-[18px] border border-violet-200/18 bg-violet-300/8 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-semibold leading-6 text-white/62">
+            {order.adminNote || "Your tracking details are ready. Follow the courier link for live delivery updates."}
+          </p>
+          {order.trackingUrl ? (
+            <a
+              href={order.trackingUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-white/12 bg-white/8 px-4 text-xs font-semibold text-white transition hover:border-violet-200/45 hover:bg-white/14"
+            >
+              Track shipment <ExternalLink size={14} />
+            </a>
+          ) : null}
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -302,6 +327,27 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
       <p className="mt-1 font-semibold text-white">{value}</p>
     </div>
   );
+}
+
+function formatOrderPaymentMethod(method?: string) {
+  const labels: Record<string, string> = {
+    cash_on_delivery: "Cash on delivery",
+    payhere: "PayHere",
+    stripe: "Stripe",
+  };
+
+  return labels[method ?? "cash_on_delivery"] ?? method ?? "Cash on delivery";
+}
+
+function formatOrderPaymentStatus(status?: string) {
+  const labels: Record<string, string> = {
+    unpaid: "Unpaid",
+    paid: "Paid",
+    failed: "Failed",
+    refunded: "Refunded",
+  };
+
+  return labels[status ?? "unpaid"] ?? status ?? "Unpaid";
 }
 
 function getStepState(currentStatus: OrderStatus, stepStatuses: readonly OrderStatus[]) {
