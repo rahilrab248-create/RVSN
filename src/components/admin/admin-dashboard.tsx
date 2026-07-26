@@ -218,7 +218,7 @@ export function AdminDashboard() {
     });
   }
 
-  async function submitProduct(event: FormEvent<HTMLFormElement>) {
+  async function submitProduct(event: FormEvent<HTMLFormElement>): Promise<boolean> {
     event.preventDefault();
     setIsSaving(true);
     setNotice("");
@@ -260,9 +260,11 @@ export function AdminDashboard() {
         setNoticeTone("error");
         setNotice(`${getAdminErrorMessage(refreshError)} Refresh the dashboard to see the saved product.`);
       }
+      return true;
     } catch (error) {
       setNoticeTone("error");
       setNotice(getAdminErrorMessage(error));
+      return false;
     } finally {
       setIsSaving(false);
     }
@@ -1006,7 +1008,7 @@ function ProductsPanel(props: {
   query: string;
   setQuery: (value: string) => void;
   isSaving: boolean;
-  submitProduct: (event: FormEvent<HTMLFormElement>) => void;
+  submitProduct: (event: FormEvent<HTMLFormElement>) => Promise<boolean>;
   uploadProductImage: (file: File | null) => void;
   editProduct: (product: Product) => void;
   removeProduct: (productId?: string) => void;
@@ -1014,6 +1016,7 @@ function ProductsPanel(props: {
 }) {
   const { form, setForm, products, query, setQuery, isSaving, submitProduct, uploadProductImage, editProduct, removeProduct, seedStarterProducts } = props;
   const galleryImages = parseProductImageUrls(form.imageUrls);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   function setGalleryImages(images: string[]) {
     setForm((current) => ({ ...current, imageUrls: serializeProductImageUrls(images) }));
@@ -1046,115 +1049,34 @@ function ProductsPanel(props: {
     setGalleryImages([image, ...nextImages]);
   }
 
+  async function handleProductSubmit(event: FormEvent<HTMLFormElement>) {
+    const wasEditing = Boolean(form.id);
+    const didSave = await submitProduct(event);
+
+    if (wasEditing && didSave) {
+      setIsEditModalOpen(false);
+    }
+  }
+
+  function closeEditModal() {
+    setIsEditModalOpen(false);
+    setForm(createEmptyProductForm());
+  }
+
   return (
     <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
-      <Panel title={form.id ? "Edit product" : "Add product"} eyebrow="Product manager">
-        <form onSubmit={submitProduct} className="grid gap-4">
-          <AdminInput label="Title" value={form.title} onChange={(value) => setForm((current) => ({ ...current, title: value }))} />
-          <AdminInput label="Brand" value={form.brand} onChange={(value) => setForm((current) => ({ ...current, brand: value }))} />
-          <AdminInput label="Category" value={form.category} onChange={(value) => setForm((current) => ({ ...current, category: value }))} />
-          <label className="grid gap-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-100/48">Product images</span>
-            <span className="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-full border border-dashed border-white/18 bg-white/[0.055] text-sm font-semibold text-white transition hover:border-violet-200/45 hover:bg-white/10">
-              <Upload size={17} /> {galleryImages.length ? "Add another image" : "Choose product image"}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                disabled={galleryImages.length >= maxProductGalleryImages}
-                onChange={(event) => {
-                  void uploadProductImage(event.target.files?.[0] ?? null);
-                  event.currentTarget.value = "";
-                }}
-              />
-            </span>
-            <span className="text-xs font-semibold text-violet-100/44">
-              Upload one image at a time. First image is the product cover. Max {maxProductGalleryImages} images.
-            </span>
-          </label>
-          {galleryImages.length ? (
-            <div className="grid gap-2">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-100/48">
-                  Gallery manager
-                </span>
-                <span className="rounded-full border border-white/10 bg-white/8 px-2.5 py-1 text-xs font-semibold text-violet-100/62">
-                  {galleryImages.length}/{maxProductGalleryImages}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {galleryImages.map((image, index) => (
-                    <div key={`${image}-${index}`} className="group relative overflow-hidden rounded-[18px] border border-white/10 bg-white/8">
-                      <div className="relative aspect-square">
-                        <Image src={image} alt={`Product gallery image ${index + 1}`} fill unoptimized={image.startsWith("data:")} sizes="180px" className="object-cover" />
-                      </div>
-                      <div className="absolute inset-x-2 top-2 flex items-center justify-between gap-2">
-                        <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-1 text-[0.64rem] font-black uppercase tracking-[0.12em]", index === 0 ? "bg-white text-black" : "bg-black/50 text-white backdrop-blur")}>
-                          {index === 0 ? <Star size={11} fill="currentColor" /> : null}
-                          {index === 0 ? "Cover" : `Image ${index + 1}`}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => removeGalleryImage(index)}
-                          className="grid size-7 place-items-center rounded-full bg-black/55 text-white opacity-90 backdrop-blur transition hover:bg-red-400 hover:text-black"
-                          aria-label={`Remove image ${index + 1}`}
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-3 gap-1 border-t border-white/10 bg-black/22 p-2">
-                        <button
-                          type="button"
-                          onClick={() => moveGalleryImage(index, -1)}
-                          disabled={index === 0}
-                          className="grid h-8 place-items-center rounded-full border border-white/10 bg-white/8 text-white transition hover:bg-white/14 disabled:cursor-not-allowed disabled:opacity-35"
-                          aria-label={`Move image ${index + 1} left`}
-                        >
-                          <ArrowUp size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => makeCoverImage(index)}
-                          disabled={index === 0}
-                          className="h-8 rounded-full border border-white/10 bg-white/8 px-2 text-[0.66rem] font-bold uppercase tracking-[0.12em] text-white transition hover:bg-white/14 disabled:cursor-not-allowed disabled:opacity-35"
-                        >
-                          Cover
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => moveGalleryImage(index, 1)}
-                          disabled={index === galleryImages.length - 1}
-                          className="grid h-8 place-items-center rounded-full border border-white/10 bg-white/8 text-white transition hover:bg-white/14 disabled:cursor-not-allowed disabled:opacity-35"
-                          aria-label={`Move image ${index + 1} right`}
-                        >
-                          <ArrowDown size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          ) : null}
-          <textarea
-            value={form.description}
-            onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
-            placeholder="Product description"
-            className="min-h-28 rounded-[18px] border border-white/10 bg-white/[0.055] p-3 text-sm font-semibold text-white outline-none transition placeholder:text-violet-100/34 focus:border-violet-200/45 focus:bg-white/10"
-          />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <AdminInput label="Sizes" value={form.sizes} onChange={(value) => setForm((current) => ({ ...current, sizes: value }))} />
-            <AdminInput label="Stock" value={form.stock} onChange={(value) => setForm((current) => ({ ...current, stock: value }))} />
-            <AdminInput label="Price" value={form.price} onChange={(value) => setForm((current) => ({ ...current, price: value }))} />
-            <AdminInput label="Rating" value={form.rating} onChange={(value) => setForm((current) => ({ ...current, rating: value }))} />
-          </div>
-          <label className="flex items-center gap-3 text-sm font-semibold text-violet-100/70">
-            <input type="checkbox" checked={form.featured} onChange={(event) => setForm((current) => ({ ...current, featured: event.target.checked }))} className="size-4 accent-lime-500" />
-            Featured product
-          </label>
-          <button disabled={isSaving} className="h-12 rounded-full bg-white text-sm font-semibold text-black transition hover:bg-violet-100 disabled:opacity-50">
-            {isSaving ? "Saving product..." : form.id ? "Update product" : "Add product"}
-          </button>
-        </form>
+      <Panel title="Add product" eyebrow="Product manager">
+        <ProductEditorForm
+          form={form}
+          setForm={setForm}
+          galleryImages={galleryImages}
+          isSaving={isSaving}
+          submitProduct={handleProductSubmit}
+          uploadProductImage={uploadProductImage}
+          removeGalleryImage={removeGalleryImage}
+          moveGalleryImage={moveGalleryImage}
+          makeCoverImage={makeCoverImage}
+        />
       </Panel>
       <Panel title="Product catalog" eyebrow="Manage">
         <div className="mb-5 grid gap-3 sm:grid-cols-[1fr_auto]">
@@ -1188,7 +1110,14 @@ function ProductsPanel(props: {
                 <p className="mt-1 text-xs font-semibold text-violet-100/48">{product.category} / ${product.price} / stock {product.stock}</p>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => editProduct(product)} className="grid size-10 place-items-center rounded-full border border-white/10 bg-white/8 text-white transition hover:bg-white/14" aria-label="Edit product">
+                <button
+                  onClick={() => {
+                    editProduct(product);
+                    setIsEditModalOpen(true);
+                  }}
+                  className="grid size-10 place-items-center rounded-full border border-white/10 bg-white/8 text-white transition hover:bg-white/14"
+                  aria-label="Edit product"
+                >
                   <Edit3 size={17} />
                 </button>
                 <button onClick={() => void removeProduct(product.id)} className="grid size-10 place-items-center rounded-full border border-red-300/20 bg-red-400/10 text-red-100 transition hover:bg-red-400/16" aria-label="Delete product">
@@ -1199,7 +1128,224 @@ function ProductsPanel(props: {
           ))}
         </div>
       </Panel>
+      <ProductEditModal
+        isOpen={isEditModalOpen}
+        form={form}
+        setForm={setForm}
+        galleryImages={galleryImages}
+        isSaving={isSaving}
+        onClose={closeEditModal}
+        submitProduct={handleProductSubmit}
+        uploadProductImage={uploadProductImage}
+        removeGalleryImage={removeGalleryImage}
+        moveGalleryImage={moveGalleryImage}
+        makeCoverImage={makeCoverImage}
+      />
     </div>
+  );
+}
+
+function ProductEditModal({
+  isOpen,
+  form,
+  setForm,
+  galleryImages,
+  isSaving,
+  onClose,
+  submitProduct,
+  uploadProductImage,
+  removeGalleryImage,
+  moveGalleryImage,
+  makeCoverImage,
+}: {
+  isOpen: boolean;
+  form: ProductFormState;
+  setForm: Dispatch<SetStateAction<ProductFormState>>;
+  galleryImages: string[];
+  isSaving: boolean;
+  onClose: () => void;
+  submitProduct: (event: FormEvent<HTMLFormElement>) => void;
+  uploadProductImage: (file: File | null) => void;
+  removeGalleryImage: (index: number) => void;
+  moveGalleryImage: (index: number, direction: -1 | 1) => void;
+  makeCoverImage: (index: number) => void;
+}) {
+  return (
+    <AnimatePresence>
+      {isOpen ? (
+        <motion.div
+          className="fixed inset-0 z-[85] grid place-items-center bg-black/72 px-3 py-6 backdrop-blur-md"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <motion.section
+            initial={{ opacity: 0, y: 18, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 18, scale: 0.98 }}
+            transition={{ duration: 0.24, ease: "easeOut" }}
+            className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-[30px] border border-white/14 bg-[#08040f]/96 p-5 text-white shadow-2xl shadow-black/60 backdrop-blur-2xl sm:p-6"
+            data-lenis-prevent
+          >
+            <div className="mb-5 flex items-start justify-between gap-4 border-b border-white/10 pb-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-100/48">Edit product</p>
+                <h2 className="mt-2 text-3xl font-normal tracking-[-0.05em] text-white">{form.title || "Product details"}</h2>
+                <p className="mt-2 text-sm font-semibold text-violet-100/52">Update the product without jumping back to the top of the admin page.</p>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="grid size-10 shrink-0 place-items-center rounded-full border border-white/12 bg-white/8 text-white transition hover:bg-white/14"
+                aria-label="Close product editor"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <ProductEditorForm
+              form={form}
+              setForm={setForm}
+              galleryImages={galleryImages}
+              isSaving={isSaving}
+              submitProduct={submitProduct}
+              uploadProductImage={uploadProductImage}
+              removeGalleryImage={removeGalleryImage}
+              moveGalleryImage={moveGalleryImage}
+              makeCoverImage={makeCoverImage}
+            />
+          </motion.section>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+function ProductEditorForm({
+  form,
+  setForm,
+  galleryImages,
+  isSaving,
+  submitProduct,
+  uploadProductImage,
+  removeGalleryImage,
+  moveGalleryImage,
+  makeCoverImage,
+}: {
+  form: ProductFormState;
+  setForm: Dispatch<SetStateAction<ProductFormState>>;
+  galleryImages: string[];
+  isSaving: boolean;
+  submitProduct: (event: FormEvent<HTMLFormElement>) => void;
+  uploadProductImage: (file: File | null) => void;
+  removeGalleryImage: (index: number) => void;
+  moveGalleryImage: (index: number, direction: -1 | 1) => void;
+  makeCoverImage: (index: number) => void;
+}) {
+  return (
+    <form onSubmit={submitProduct} className="grid gap-4">
+      <AdminInput label="Title" value={form.title} onChange={(value) => setForm((current) => ({ ...current, title: value }))} />
+      <AdminInput label="Brand" value={form.brand} onChange={(value) => setForm((current) => ({ ...current, brand: value }))} />
+      <AdminInput label="Category" value={form.category} onChange={(value) => setForm((current) => ({ ...current, category: value }))} />
+      <label className="grid gap-2">
+        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-100/48">Product images</span>
+        <span className="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-full border border-dashed border-white/18 bg-white/[0.055] text-sm font-semibold text-white transition hover:border-violet-200/45 hover:bg-white/10">
+          <Upload size={17} /> {galleryImages.length ? "Add another image" : "Choose product image"}
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            disabled={galleryImages.length >= maxProductGalleryImages}
+            onChange={(event) => {
+              void uploadProductImage(event.target.files?.[0] ?? null);
+              event.currentTarget.value = "";
+            }}
+          />
+        </span>
+        <span className="text-xs font-semibold text-violet-100/44">
+          Upload one image at a time. First image is the product cover. Max {maxProductGalleryImages} images.
+        </span>
+      </label>
+      {galleryImages.length ? (
+        <div className="grid gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-100/48">Gallery manager</span>
+            <span className="rounded-full border border-white/10 bg-white/8 px-2.5 py-1 text-xs font-semibold text-violet-100/62">
+              {galleryImages.length}/{maxProductGalleryImages}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {galleryImages.map((image, index) => (
+              <div key={`${image}-${index}`} className="group relative overflow-hidden rounded-[18px] border border-white/10 bg-white/8">
+                <div className="relative aspect-square">
+                  <Image src={image} alt={`Product gallery image ${index + 1}`} fill unoptimized={image.startsWith("data:")} sizes="180px" className="object-cover" />
+                </div>
+                <div className="absolute inset-x-2 top-2 flex items-center justify-between gap-2">
+                  <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-1 text-[0.64rem] font-black uppercase tracking-[0.12em]", index === 0 ? "bg-white text-black" : "bg-black/50 text-white backdrop-blur")}>
+                    {index === 0 ? <Star size={11} fill="currentColor" /> : null}
+                    {index === 0 ? "Cover" : `Image ${index + 1}`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeGalleryImage(index)}
+                    className="grid size-7 place-items-center rounded-full bg-black/55 text-white opacity-90 backdrop-blur transition hover:bg-red-400 hover:text-black"
+                    aria-label={`Remove image ${index + 1}`}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+                <div className="grid grid-cols-3 gap-1 border-t border-white/10 bg-black/22 p-2">
+                  <button
+                    type="button"
+                    onClick={() => moveGalleryImage(index, -1)}
+                    disabled={index === 0}
+                    className="grid h-8 place-items-center rounded-full border border-white/10 bg-white/8 text-white transition hover:bg-white/14 disabled:cursor-not-allowed disabled:opacity-35"
+                    aria-label={`Move image ${index + 1} left`}
+                  >
+                    <ArrowUp size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => makeCoverImage(index)}
+                    disabled={index === 0}
+                    className="h-8 rounded-full border border-white/10 bg-white/8 px-2 text-[0.66rem] font-bold uppercase tracking-[0.12em] text-white transition hover:bg-white/14 disabled:cursor-not-allowed disabled:opacity-35"
+                  >
+                    Cover
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveGalleryImage(index, 1)}
+                    disabled={index === galleryImages.length - 1}
+                    className="grid h-8 place-items-center rounded-full border border-white/10 bg-white/8 text-white transition hover:bg-white/14 disabled:cursor-not-allowed disabled:opacity-35"
+                    aria-label={`Move image ${index + 1} right`}
+                  >
+                    <ArrowDown size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <textarea
+        value={form.description}
+        onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+        placeholder="Product description"
+        className="min-h-28 rounded-[18px] border border-white/10 bg-white/[0.055] p-3 text-sm font-semibold text-white outline-none transition placeholder:text-violet-100/34 focus:border-violet-200/45 focus:bg-white/10"
+      />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <AdminInput label="Sizes" value={form.sizes} onChange={(value) => setForm((current) => ({ ...current, sizes: value }))} />
+        <AdminInput label="Stock" value={form.stock} onChange={(value) => setForm((current) => ({ ...current, stock: value }))} />
+        <AdminInput label="Price" value={form.price} onChange={(value) => setForm((current) => ({ ...current, price: value }))} />
+        <AdminInput label="Rating" value={form.rating} onChange={(value) => setForm((current) => ({ ...current, rating: value }))} />
+      </div>
+      <label className="flex items-center gap-3 text-sm font-semibold text-violet-100/70">
+        <input type="checkbox" checked={form.featured} onChange={(event) => setForm((current) => ({ ...current, featured: event.target.checked }))} className="size-4 accent-lime-500" />
+        Featured product
+      </label>
+      <button disabled={isSaving} className="h-12 rounded-full bg-white text-sm font-semibold text-black transition hover:bg-violet-100 disabled:opacity-50">
+        {isSaving ? "Saving product..." : form.id ? "Update product" : "Add product"}
+      </button>
+    </form>
   );
 }
 

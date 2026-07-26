@@ -708,6 +708,81 @@ a {
   transform: translate3d(0, 0, 0);
 }
 
+.product-card-glitch-layer {
+  position: absolute;
+  inset: -1px;
+  z-index: 35;
+  opacity: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, transparent 0 11%, rgba(255, 255, 255, 0.72) 11.4% 13.4%, transparent 15% 42%, rgba(168, 85, 247, 0.55) 42.5% 46.5%, transparent 49% 72%, rgba(125, 211, 252, 0.42) 72.5% 75.2%, transparent 77%),
+    radial-gradient(circle at 50% 24%, rgba(196, 181, 253, 0.24), transparent 34%),
+    var(--card-glitch-image) center / cover no-repeat;
+  filter: contrast(1.28) saturate(1.34);
+  mix-blend-mode: screen;
+  transform: translate3d(0, 0, 0);
+}
+
+.product-card-reveal.glitch-left {
+  --card-glitch-x-1: -28px;
+  --card-glitch-x-2: 24px;
+  --card-glitch-x-3: -18px;
+  --card-glitch-x-4: 12px;
+  --card-glitch-y-1: 0px;
+  --card-glitch-y-2: 0px;
+  --card-glitch-y-3: 0px;
+  --card-glitch-y-4: 0px;
+}
+
+.product-card-reveal.glitch-right {
+  --card-glitch-x-1: 28px;
+  --card-glitch-x-2: -24px;
+  --card-glitch-x-3: 18px;
+  --card-glitch-x-4: -12px;
+  --card-glitch-y-1: 0px;
+  --card-glitch-y-2: 0px;
+  --card-glitch-y-3: 0px;
+  --card-glitch-y-4: 0px;
+}
+
+.product-card-reveal.glitch-up {
+  --card-glitch-x-1: 0px;
+  --card-glitch-x-2: 0px;
+  --card-glitch-x-3: 0px;
+  --card-glitch-x-4: 0px;
+  --card-glitch-y-1: -24px;
+  --card-glitch-y-2: 22px;
+  --card-glitch-y-3: -16px;
+  --card-glitch-y-4: 10px;
+}
+
+.product-card-reveal.glitch-down {
+  --card-glitch-x-1: 0px;
+  --card-glitch-x-2: 0px;
+  --card-glitch-x-3: 0px;
+  --card-glitch-x-4: 0px;
+  --card-glitch-y-1: 24px;
+  --card-glitch-y-2: -22px;
+  --card-glitch-y-3: 16px;
+  --card-glitch-y-4: -10px;
+}
+
+.product-card-reveal.glitch-diag {
+  --card-glitch-x-1: -24px;
+  --card-glitch-x-2: 26px;
+  --card-glitch-x-3: -16px;
+  --card-glitch-x-4: 12px;
+  --card-glitch-y-1: -16px;
+  --card-glitch-y-2: 18px;
+  --card-glitch-y-3: 12px;
+  --card-glitch-y-4: -10px;
+}
+
+.product-card-reveal.is-card-scroll-glitching .product-card-glitch-layer {
+  animation: rvsnCardRevealGlitch 1.24s steps(1, end) both;
+  animation-delay: var(--card-glitch-delay, 0s);
+}
+
 .product-card:hover .glitch-left .product-glitch-layer,
 .product-visual.glitch-left:hover .product-glitch-layer,
 .product-visual.glitch-left.is-hover-glitching .product-glitch-layer,
@@ -828,6 +903,12 @@ a {
 
 @media (hover: none) {
   .product-card:hover .product-glitch-layer {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-card-reveal.is-card-scroll-glitching .product-card-glitch-layer {
     animation: none;
   }
 }
@@ -3008,6 +3089,51 @@ a {
     opacity: 0;
     clip-path: inset(0 0 0 0);
     transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes rvsnCardRevealGlitch {
+  0%,
+  100% {
+    opacity: 0;
+    clip-path: inset(0 0 0 0);
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  8% {
+    opacity: 0.86;
+    clip-path: inset(0 0 74% 0);
+    transform: translate3d(var(--card-glitch-x-1), var(--card-glitch-y-1), 0) scale(1.012);
+  }
+
+  18% {
+    opacity: 0.62;
+    clip-path: inset(16% 0 52% 0);
+    transform: translate3d(var(--card-glitch-x-2), var(--card-glitch-y-2), 0) scale(1.018);
+  }
+
+  34% {
+    opacity: 0.74;
+    clip-path: inset(46% 0 24% 0);
+    transform: translate3d(var(--card-glitch-x-3), var(--card-glitch-y-3), 0) scale(1.01);
+  }
+
+  52% {
+    opacity: 0.46;
+    clip-path: inset(72% 0 7% 0);
+    transform: translate3d(var(--card-glitch-x-4), var(--card-glitch-y-4), 0) scale(1.006);
+  }
+
+  70% {
+    opacity: 0.2;
+    clip-path: inset(0 0 0 0);
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  84% {
+    opacity: 0;
+    clip-path: inset(0 0 0 0);
+    transform: translate3d(0, 0, 0) scale(1);
   }
 }
 

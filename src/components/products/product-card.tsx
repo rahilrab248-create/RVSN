@@ -1,9 +1,9 @@
 "use client";
 
 import { ArrowUpRight } from "lucide-react";
-import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
+import { motion, useMotionValue, useReducedMotion, useSpring, useTransform, type MotionStyle } from "framer-motion";
 import Link from "next/link";
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useState, type CSSProperties, type MouseEvent } from "react";
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import { Price } from "@/components/currency/price";
 import type { CatalogProduct } from "@/config/products";
@@ -21,6 +21,7 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [glitchKey, setGlitchKey] = useState(0);
   const [isHoverGlitching, setIsHoverGlitching] = useState(false);
+  const [hasScrollGlitched, setHasScrollGlitched] = useState(false);
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
   const rotateX = useSpring(useTransform(mouseY, [-0.5, 0.5], [8, -8]), { stiffness: 180, damping: 18 });
@@ -57,18 +58,31 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
 
   const productHref = product.detailHref ?? `/products/${product.id}`;
   const glitchDirection = getGlitchDirection(index);
+  const cardRevealDelay = shouldReduceMotion ? 0 : Math.min(index % 8, 7) * (isTouchDevice ? 0.035 : 0.055);
+  const cardStyle = {
+    ...(isTouchDevice || shouldReduceMotion ? {} : { rotateX, rotateY, transformStyle: "preserve-3d" as const }),
+    "--card-glitch-image": `url(${product.imageUrl})`,
+    "--card-glitch-delay": `${cardRevealDelay}s`,
+  } as MotionStyle & CSSProperties;
 
   return (
     <motion.article
-      initial={shouldReduceMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: isTouchDevice ? 18 : 24, scale: isTouchDevice ? 0.985 : 1 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: isTouchDevice ? 0.42 : 0.5, ease: [0.16, 1, 0.3, 1], delay: shouldReduceMotion ? 0 : index * (isTouchDevice ? 0.035 : 0.045) }}
+      initial={shouldReduceMotion ? { opacity: 1, y: 0, scale: 1, filter: "none" } : { opacity: 0, y: isTouchDevice ? 22 : 34, scale: isTouchDevice ? 0.975 : 0.965, filter: "blur(14px)" }}
+      whileInView={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+      viewport={{ once: true, margin: isTouchDevice ? "-6%" : "-12%" }}
+      onViewportEnter={() => {
+        if (!shouldReduceMotion) {
+          setHasScrollGlitched(true);
+        }
+      }}
+      transition={{ duration: isTouchDevice ? 0.66 : 0.78, ease: [0.16, 1, 0.3, 1], delay: cardRevealDelay }}
       onMouseMove={handleMouseMove}
       onPointerEnter={handlePointerEnter}
       onMouseLeave={handleMouseLeave}
-      style={isTouchDevice || shouldReduceMotion ? undefined : { rotateX, rotateY, transformStyle: "preserve-3d" }}
-      className="product-card group flex h-full min-w-0 flex-col overflow-hidden rounded-[26px] border border-white/12 bg-[linear-gradient(180deg,#0b0a15_0%,#070711_100%)] shadow-2xl shadow-black/35"
+      style={cardStyle}
+      className={`product-card product-card-reveal group relative flex h-full min-w-0 flex-col overflow-hidden rounded-[26px] border border-white/12 bg-[linear-gradient(180deg,#0b0a15_0%,#070711_100%)] shadow-2xl shadow-black/35 glitch-${glitchDirection} ${hasScrollGlitched && !shouldReduceMotion ? "is-card-scroll-glitching" : ""}`}
     >
+      {!shouldReduceMotion ? <span className="product-card-glitch-layer" aria-hidden="true" /> : null}
       <Link href={productHref} className="product-card-link flex flex-1 flex-col overflow-hidden rounded-[28px]">
         <div className="product-card-media relative overflow-hidden border-b border-white/10">
           <motion.div whileHover={isTouchDevice ? undefined : { scale: 1.06 }} transition={{ duration: 0.4, ease: "easeOut" }}>
