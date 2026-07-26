@@ -5,29 +5,41 @@ import { useEffect, useState, type CSSProperties } from "react";
 export function LoadingScreen() {
   const [count, setCount] = useState(0);
   const [isHidden, setIsHidden] = useState(false);
-  const [shouldRender, setShouldRender] = useState(false);
+  const [shouldRender, setShouldRender] = useState(true);
 
   useEffect(() => {
     if (window.sessionStorage.getItem("ft-loader-seen") === "true") {
-      return;
+      setIsHidden(true);
+      const cleanupTimer = window.setTimeout(() => setShouldRender(false), 920);
+      return () => window.clearTimeout(cleanupTimer);
     }
 
     setShouldRender(true);
+    setIsHidden(false);
+
+    const fallbackTimer = window.setTimeout(() => setShouldRender(false), 1800);
     const timer = window.setInterval(() => {
       setCount((value) => {
         const nextValue = Math.min(value + Math.ceil((100 - value) / 9), 100);
 
         if (nextValue >= 100) {
           window.clearInterval(timer);
+          window.clearTimeout(fallbackTimer);
           window.sessionStorage.setItem("ft-loader-seen", "true");
-          window.setTimeout(() => setIsHidden(true), 420);
+          window.setTimeout(() => {
+            setIsHidden(true);
+            window.setTimeout(() => setShouldRender(false), 920);
+          }, 420);
         }
 
         return nextValue;
       });
     }, 34);
 
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearInterval(timer);
+      window.clearTimeout(fallbackTimer);
+    };
   }, []);
 
   if (!shouldRender) {
