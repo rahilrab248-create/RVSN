@@ -1,10 +1,17 @@
 import type { Metadata, Viewport } from "next";
+import { Geist } from "next/font/google";
 import "@/app/globals.css";
 import { Footer } from "@/components/layout/footer";
 import { Navbar } from "@/components/layout/navbar";
 import { LoadingScreen } from "@/components/ui/loading-screen";
 import { AppProviders } from "@/providers/app-providers";
 import { siteConfig } from "@/config/site";
+
+const geistSans = Geist({
+  subsets: ["latin"],
+  variable: "--font-geist-sans",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -66,7 +73,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
-      <body className="antialiased" suppressHydrationWarning>
+      <body className={`${geistSans.variable} antialiased`} suppressHydrationWarning>
         <AppProviders>
           <LoadingScreen />
           <div className="flex min-h-screen flex-col overflow-hidden">

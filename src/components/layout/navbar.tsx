@@ -12,6 +12,13 @@ import { useAuth } from "@/hooks/use-auth";
 import { useCart } from "@/hooks/use-cart";
 import { cn } from "@/lib/utils";
 
+const shopDropdownItems = [
+  { label: "Jerseys", href: "/category/jerseys" },
+  { label: "Astro Turf Football Boots", href: "/category/astro-turf-football-boots" },
+  { label: "Men's Football Boots", href: "/category/mens-football-boots" },
+  { label: "Training", href: "/category/training" },
+];
+
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -19,7 +26,7 @@ export function Navbar() {
   const [currentHash, setCurrentHash] = useState("");
   const [navHighlight, setNavHighlight] = useState({ x: 0, width: 0, visible: false });
   const [isBrandCompact, setIsBrandCompact] = useState(false);
-  const navLinkRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
+  const navLinkRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const router = useRouter();
   const pathname = usePathname();
   const { isAuthenticated, isLoading, logout, profile } = useAuth();
@@ -149,14 +156,18 @@ export function Navbar() {
           />
           {navItems.map((item) => {
             const isActive = isNavItemActive(pathname, item.href, currentHash);
+            const isShopItem = item.href === "/products";
 
             return (
-              <a
+              <div
                 key={item.href}
-                href={item.href}
                 ref={(node) => {
                   navLinkRefs.current[item.href] = node;
                 }}
+                className={cn("relative flex flex-1", isShopItem && "aww-nav-shop-group")}
+              >
+                <a
+                href={item.href}
                 className={cn(
                   "aww-nav-link group relative inline-flex h-11 items-center justify-center overflow-hidden px-6 text-base font-medium transition",
                   isActive ? "!text-white" : "!text-white/84 hover:!text-white",
@@ -167,6 +178,20 @@ export function Navbar() {
               >
                 <span className="relative z-10" style={homeReadableStyle}>{item.label}</span>
               </a>
+                {isShopItem ? (
+                  <div className="aww-shop-dropdown" aria-label="Shop categories">
+                    <div className="aww-shop-dropdown-inner">
+                      <p>Shop football</p>
+                      {shopDropdownItems.map((dropdownItem) => (
+                        <Link key={dropdownItem.href} href={dropdownItem.href} className="aww-shop-dropdown-link">
+                          <span>{dropdownItem.label}</span>
+                          <span aria-hidden="true">-&gt;</span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             );
           })}
         </div>
@@ -473,7 +498,7 @@ const mobileMenuItemVariants: Variants = {
 
 function isNavItemActive(pathname: string, href: string, currentHash: string) {
   if (href === "/products") {
-    return pathname.startsWith("/products");
+    return pathname.startsWith("/products") || pathname.startsWith("/category");
   }
 
   if (href.startsWith("/#")) {
