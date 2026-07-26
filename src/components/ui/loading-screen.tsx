@@ -1,13 +1,52 @@
+"use client";
+
+import { useEffect, useState, type CSSProperties } from "react";
+
 export function LoadingScreen() {
+  const [count, setCount] = useState(0);
+  const [isHidden, setIsHidden] = useState(false);
+  const [shouldRender, setShouldRender] = useState(false);
+
+  useEffect(() => {
+    if (window.sessionStorage.getItem("ft-loader-seen") === "true") {
+      return;
+    }
+
+    setShouldRender(true);
+    const timer = window.setInterval(() => {
+      setCount((value) => {
+        const nextValue = Math.min(value + Math.ceil((100 - value) / 9), 100);
+
+        if (nextValue >= 100) {
+          window.clearInterval(timer);
+          window.sessionStorage.setItem("ft-loader-seen", "true");
+          window.setTimeout(() => setIsHidden(true), 420);
+        }
+
+        return nextValue;
+      });
+    }, 34);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  if (!shouldRender) {
+    return null;
+  }
+
   return (
-    <div className="loading-screen-fallback pointer-events-none fixed inset-0 z-50 grid place-items-center bg-[#070a0f]">
-      <div className="grid place-items-center gap-5">
-        <div className="loading-ball relative size-20 rounded-full border border-lime-300/25">
-          <span className="absolute left-1/2 top-0 size-3 -translate-x-1/2 rounded-full bg-lime-300 shadow-[0_0_24px_rgba(215,255,47,0.85)]" />
-          <span className="absolute inset-4 rounded-full border border-white/10" />
-        </div>
-        <p className="font-mono text-xs uppercase tracking-[0.28em] text-slate-300">Preparing pitch</p>
-      </div>
+    <div
+      className={isHidden ? "aww-loader is-hidden" : "aww-loader"}
+      style={
+        {
+          "--loader-fill": `${count}%`,
+          "--loader-mark-y": `${count * -0.08}px`,
+        } as CSSProperties
+      }
+      aria-hidden="true"
+    >
+      <span>{count}%</span>
+      <strong>RVSN</strong>
     </div>
   );
 }

@@ -21,7 +21,7 @@ import {
   subscribeToAuthState,
 } from "@/lib/firebase/auth";
 import { hasFirebaseClientConfig } from "@/lib/firebase/config";
-import { ensureUserProfile } from "@/lib/firebase/users";
+import { ensureUserProfile, recordUserLogin } from "@/lib/firebase/users";
 import type { UserProfile } from "@/types/user";
 import type { Timestamp } from "firebase/firestore";
 
@@ -113,6 +113,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const credential = await signInWithEmail(email, password);
       const nextProfile = await resolveUserProfile(credential.user);
+      await recordUserLogin(credential.user).catch(() => undefined);
       setProfile(nextProfile.profile);
       setProfileSyncError(nextProfile.error);
     } finally {
@@ -131,6 +132,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
       await sendVerificationEmail(credential.user);
       const nextProfile = await resolveUserProfile(credential.user, params.name);
+      await recordUserLogin(credential.user).catch(() => undefined);
       setProfile(nextProfile.profile);
       setProfileSyncError(nextProfile.error);
     } finally {
@@ -144,6 +146,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const credential = await signInWithGoogle();
       const nextProfile = await resolveUserProfile(credential.user);
+      await recordUserLogin(credential.user).catch(() => undefined);
       setProfile(nextProfile.profile);
       setProfileSyncError(nextProfile.error);
     } finally {

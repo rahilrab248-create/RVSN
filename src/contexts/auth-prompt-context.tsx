@@ -41,38 +41,41 @@ export function AuthPromptProvider({ children }: { children: ReactNode }) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 18, scale: 0.98 }}
               transition={{ type: "spring", damping: 24, stiffness: 260 }}
-              className="relative w-full max-w-md border border-slate-200 bg-white p-6 text-slate-950 shadow-2xl shadow-slate-950/30 dark:border-white/10 dark:bg-slate-900 dark:text-white"
+              className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-white/14 bg-[#09070f]/92 p-6 text-white shadow-2xl shadow-black/45 backdrop-blur-2xl"
             >
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(168,85,247,0.28),transparent_18rem),linear-gradient(135deg,rgba(255,255,255,0.08),transparent_46%)]" />
               <button
                 aria-label="Close login prompt"
-                className="absolute right-4 top-4 grid size-9 place-items-center border border-slate-200 bg-slate-50 text-slate-700 transition hover:text-slate-950 dark:border-white/10 dark:bg-white/10 dark:text-slate-200"
+                className="absolute right-4 top-4 z-10 grid size-9 place-items-center rounded-full border border-white/12 bg-white/8 text-white/76 transition hover:border-white/30 hover:bg-white/14 hover:text-white"
                 onClick={closeAuthPrompt}
               >
                 <X size={18} />
               </button>
-              <span className="grid size-14 place-items-center bg-lime-300 text-slate-950">
-                <LockKeyhole size={24} />
-              </span>
-              <p className="mt-5 text-xs font-black uppercase tracking-[0.24em] text-lime-700 dark:text-lime-300">
-                Login required
-              </p>
-              <h2 className="mt-2 text-3xl font-black tracking-tight">Join before checkout.</h2>
-              <p className="mt-3 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">{message}</p>
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                <Link
-                  href="/login"
-                  onClick={closeAuthPrompt}
-                  className="grid h-12 place-items-center bg-slate-950 text-sm font-black text-white transition hover:bg-lime-500 hover:text-slate-950 dark:bg-lime-300 dark:text-slate-950"
-                >
-                  Login
-                </Link>
-                <Link
-                  href="/signup"
-                  onClick={closeAuthPrompt}
-                  className="grid h-12 place-items-center border border-slate-300 bg-white text-sm font-black text-slate-950 transition hover:border-lime-500 dark:border-white/15 dark:bg-white/10 dark:text-white"
-                >
-                  Sign up
-                </Link>
+              <div className="relative z-10">
+                <span className="grid size-14 place-items-center rounded-2xl border border-violet-200/24 bg-white/10 text-violet-100 shadow-[inset_0_1px_rgba(255,255,255,0.18)]">
+                  <LockKeyhole size={23} />
+                </span>
+                <p className="mt-5 text-xs font-semibold uppercase tracking-[0.24em] text-violet-100/62">
+                  Login required
+                </p>
+                <h2 className="mt-2 text-3xl font-normal leading-none tracking-[-0.05em] text-white">Join before checkout.</h2>
+                <p className="mt-4 text-sm font-semibold leading-6 text-violet-100/68">{message}</p>
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  <Link
+                    href="/login"
+                    onClick={closeAuthPrompt}
+                    className="grid h-12 place-items-center rounded-full border border-white/90 bg-white text-sm font-semibold !text-black shadow-[0_16px_40px_rgba(255,255,255,0.08)] transition hover:border-violet-200 hover:bg-violet-100"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    href="/signup"
+                    onClick={closeAuthPrompt}
+                    className="grid h-12 place-items-center rounded-full border border-white/14 bg-white/8 text-sm font-semibold !text-white transition hover:border-violet-200/45 hover:bg-white/14"
+                  >
+                    Sign up
+                  </Link>
+                </div>
               </div>
             </motion.section>
           </motion.div>

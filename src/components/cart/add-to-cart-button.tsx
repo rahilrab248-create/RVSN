@@ -57,7 +57,7 @@ export function AddToCartButton({
       whileHover={{ y: -2 }}
       whileTap={{ scale: 0.98 }}
       className={cn(
-        "inline-flex h-12 items-center justify-center gap-2 bg-lime-300 px-6 text-sm font-extrabold text-slate-950 transition hover:bg-lime-200 disabled:cursor-not-allowed disabled:opacity-70",
+        "inline-flex h-12 items-center justify-center gap-2 rounded-full bg-white px-6 text-sm font-extrabold text-black transition hover:bg-violet-200 disabled:cursor-not-allowed disabled:opacity-70",
         className,
       )}
       onClick={handleAddToCart}

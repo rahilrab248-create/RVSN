@@ -1,4 +1,9 @@
+"use client";
+
+import { useRef } from "react";
+import { useInView, useReducedMotion } from "framer-motion";
 import Image from "next/image";
+import type { CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 
 type ProductVisualProps = {
@@ -7,18 +12,35 @@ type ProductVisualProps = {
   colorway: string;
   imageUrl?: string;
   className?: string;
+  glitchDirection?: "left" | "right" | "up" | "down" | "diag";
+  isGlitching?: boolean;
 };
 
-export function ProductVisual({ title, label, colorway, imageUrl, className }: ProductVisualProps) {
+export function ProductVisual({ title, label, colorway, imageUrl, className, glitchDirection = "left", isGlitching = false }: ProductVisualProps) {
+  const visualRef = useRef<HTMLDivElement | null>(null);
+  const isInView = useInView(visualRef, { once: true, amount: 0.35, margin: "-8% 0px" });
+  const shouldReduceMotion = useReducedMotion();
+
   return (
-    <div className={cn("relative overflow-hidden bg-slate-950", className)}>
+    <div
+      ref={visualRef}
+      className={cn(
+        "product-visual relative overflow-hidden bg-slate-950",
+        `glitch-${glitchDirection}`,
+        isInView && !shouldReduceMotion && "is-scroll-glitching",
+        isGlitching && !shouldReduceMotion && "is-hover-glitching",
+        className,
+      )}
+      style={{ position: "relative", "--product-glitch-image": imageUrl ? `url(${imageUrl})` : undefined } as CSSProperties}
+    >
       {imageUrl ? (
         <Image
           src={imageUrl}
           alt={title}
           fill
+          unoptimized={imageUrl.startsWith("data:")}
           sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-          className="object-cover transition duration-500 group-hover:scale-105"
+          className="product-visual-image object-cover transition duration-500 group-hover:scale-105"
         />
       ) : (
         <>
@@ -29,8 +51,9 @@ export function ProductVisual({ title, label, colorway, imageUrl, className }: P
           <div className="absolute left-1/2 top-8 h-[calc(100%-4rem)] w-px -translate-x-1/2 bg-white/20" />
         </>
       )}
-      <div className="pointer-events-none absolute inset-0 translate-x-[-135%] skew-x-[-18deg] bg-[linear-gradient(105deg,transparent_0%,rgba(255,255,255,0.08)_34%,rgba(255,255,255,0.72)_48%,rgba(215,255,47,0.24)_58%,transparent_72%)] opacity-0 transition duration-700 ease-out group-hover:translate-x-[135%] group-hover:opacity-100" />
-      <div className="pointer-events-none absolute inset-0 opacity-0 transition duration-500 group-hover:opacity-100 bg-[radial-gradient(circle_at_50%_20%,rgba(255,255,255,0.22),transparent_38%)]" />
+      <div className="product-visual-shine pointer-events-none absolute inset-0 translate-x-[-135%] skew-x-[-18deg] bg-[linear-gradient(105deg,transparent_0%,rgba(255,255,255,0.08)_34%,rgba(255,255,255,0.72)_48%,rgba(215,255,47,0.24)_58%,transparent_72%)] opacity-0 transition duration-700 ease-out group-hover:translate-x-[135%] group-hover:opacity-100" />
+      <div className="product-visual-glow pointer-events-none absolute inset-0 opacity-0 transition duration-500 group-hover:opacity-100 bg-[radial-gradient(circle_at_50%_20%,rgba(255,255,255,0.22),transparent_38%)]" />
+      {imageUrl ? <div className="product-glitch-layer" aria-hidden="true" /> : null}
       {label ? (
         <div className="absolute bottom-5 left-5 right-5">
           <p className="inline-flex bg-white/90 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-slate-950">

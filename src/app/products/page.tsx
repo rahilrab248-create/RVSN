@@ -10,18 +10,18 @@ export const metadata: Metadata = {
 
 export default function ProductsPage() {
   return (
-    <section className="pitch-grid min-h-screen border-b border-slate-200 px-4 pb-20 pt-28 sm:pt-32">
+    <section className="product-page-shell min-h-screen border-b border-white/10 px-4 pb-20 pt-28 text-white sm:pt-32">
       <div className="container-shell">
         <div className="mb-10 max-w-3xl">
-          <p className="text-xs font-bold uppercase tracking-[0.24em] text-slate-500">Product system</p>
-          <h1 className="mt-4 text-balance text-4xl font-black leading-tight text-slate-950 sm:text-6xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-100/50">Product system</p>
+          <h1 className="mt-4 text-balance text-4xl font-normal leading-[0.96] tracking-[-0.06em] text-white sm:text-6xl">
             Shop the football wall.
           </h1>
-          <p className="mt-5 text-pretty text-base leading-8 text-slate-600">
+          <p className="mt-5 text-pretty text-base leading-8 text-violet-100/65">
             Search, filter, and sort elite football gear made for tunnel walks, training nights, and match-winning moments.
           </p>
         </div>
-        <Suspense fallback={<div className="glass-panel rounded-lg p-8 text-center text-slate-500">Loading products...</div>}>
+        <Suspense fallback={<div className="rounded-[28px] border border-white/10 bg-white/[0.055] p-8 text-center text-violet-100/60">Loading products...</div>}>
           <ProductsPageClient products={catalogProducts} categories={catalogCategories} />
         </Suspense>
       </div>

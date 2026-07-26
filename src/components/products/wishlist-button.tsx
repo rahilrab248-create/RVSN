@@ -1,10 +1,8 @@
 "use client";
 
 import { Heart, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useAuthPrompt } from "@/contexts/auth-prompt-context";
-import { addToWishlist, isInWishlist, removeFromWishlist } from "@/lib/firebase/wishlist";
-import { useAuth } from "@/hooks/use-auth";
+import { useState } from "react";
+import { useWishlist } from "@/hooks/use-wishlist";
 import { cn } from "@/lib/utils";
 
 type WishlistButtonProps = {
@@ -15,61 +13,14 @@ type WishlistButtonProps = {
 };
 
 export function WishlistButton({ productId, productTitle, variant = "wide", className }: WishlistButtonProps) {
-  const { user, isAuthenticated } = useAuth();
-  const { openAuthPrompt } = useAuthPrompt();
-  const [isSaved, setIsSaved] = useState(false);
+  const { isSaved: checkSaved, toggleWishlist } = useWishlist();
   const [isLoading, setIsLoading] = useState(false);
+  const isSaved = checkSaved(productId);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    async function checkWishlist() {
-      if (!user) {
-        setIsSaved(false);
-        return;
-      }
-
-      try {
-        const saved = await isInWishlist(user.uid, productId);
-        if (isMounted) {
-          setIsSaved(saved);
-        }
-      } catch {
-        if (isMounted) {
-          setIsSaved(readLocalWishlist().includes(productId));
-        }
-      }
-    }
-
-    void checkWishlist();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [productId, user]);
-
-  async function toggleWishlist() {
-    if (!isAuthenticated || !user) {
-      openAuthPrompt("To save products to your wishlist, please login or sign up first.");
-      return;
-    }
-
+  async function handleToggleWishlist() {
     setIsLoading(true);
-    setIsSaved((value) => !value);
-
     try {
-      if (isSaved) {
-        await removeFromWishlist(user.uid, productId);
-        writeLocalWishlist(readLocalWishlist().filter((id) => id !== productId));
-      } else {
-        await addToWishlist({ userId: user.uid, productId });
-        writeLocalWishlist([...new Set([...readLocalWishlist(), productId])]);
-      }
-    } catch {
-      const nextWishlist = isSaved
-        ? readLocalWishlist().filter((id) => id !== productId)
-        : [...new Set([...readLocalWishlist(), productId])];
-      writeLocalWishlist(nextWishlist);
+      await toggleWishlist(productId, productTitle);
     } finally {
       setIsLoading(false);
     }
@@ -79,8 +30,8 @@ export function WishlistButton({ productId, productTitle, variant = "wide", clas
     return (
       <button
         className={cn(
-          "grid size-10 place-items-center border border-white/80 bg-white/90 text-slate-950 shadow-sm backdrop-blur transition hover:border-slate-950",
-          isSaved && "bg-lime-300 text-slate-950",
+          "grid size-10 place-items-center border border-white/70 bg-white/90 text-black shadow-sm backdrop-blur transition hover:border-white hover:bg-white",
+          isSaved && "bg-violet-200 text-black",
           className,
         )}
         aria-label={`${isSaved ? "Remove" : "Save"} ${productTitle}`}
@@ -89,7 +40,7 @@ export function WishlistButton({ productId, productTitle, variant = "wide", clas
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
-          void toggleWishlist();
+          void handleToggleWishlist();
         }}
       >
         {isLoading ? <Loader2 className="animate-spin" size={18} /> : <Heart size={18} fill={isSaved ? "currentColor" : "none"} />}
@@ -100,36 +51,16 @@ export function WishlistButton({ productId, productTitle, variant = "wide", clas
   return (
     <button
       className={cn(
-        "inline-flex h-12 items-center justify-center gap-2 border border-slate-300 bg-white px-6 text-sm font-semibold text-slate-950 transition hover:border-slate-950",
-        isSaved && "border-lime-400 bg-lime-100",
+        "inline-flex h-12 items-center justify-center gap-2 rounded-full border border-white/20 bg-white px-6 text-sm font-semibold text-black transition hover:border-white hover:bg-violet-100",
+        isSaved && "border-violet-200 bg-violet-200",
         className,
       )}
       aria-pressed={isSaved}
       type="button"
-      onClick={() => void toggleWishlist()}
+      onClick={() => void handleToggleWishlist()}
     >
       {isLoading ? <Loader2 className="animate-spin" size={18} /> : <Heart size={18} fill={isSaved ? "currentColor" : "none"} />}
       {isSaved ? "Saved" : "Wishlist"}
     </button>
   );
-}
-
-function readLocalWishlist() {
-  if (typeof window === "undefined") {
-    return [];
-  }
-
-  try {
-    return JSON.parse(window.localStorage.getItem("fooltball-wishlist") ?? "[]") as string[];
-  } catch {
-    return [];
-  }
-}
-
-function writeLocalWishlist(productIds: string[]) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.setItem("fooltball-wishlist", JSON.stringify(productIds));
 }

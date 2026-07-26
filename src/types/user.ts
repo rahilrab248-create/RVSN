@@ -9,4 +9,8 @@ export type UserProfile = {
   role: UserRole;
   createdAt: Timestamp;
   updatedAt?: Timestamp;
+  lastLoginAt?: Timestamp;
+  lastSeenAt?: Timestamp;
+  loginCount?: number;
+  provider?: string;
 };

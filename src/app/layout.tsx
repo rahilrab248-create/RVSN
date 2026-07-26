@@ -45,6 +45,11 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png",
+  },
 };
 
 export const viewport: Viewport = {
@@ -61,7 +66,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
-      <body className="antialiased">
+      <body className="antialiased" suppressHydrationWarning>
         <AppProviders>
           <LoadingScreen />
           <div className="flex min-h-screen flex-col overflow-hidden">

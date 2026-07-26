@@ -1,4 +1,4 @@
-# Fooltball
+# RVSN Football Store
 
 Production-ready football ecommerce website foundation built with Next.js 15 App Router, TypeScript, Tailwind CSS, Firebase, Framer Motion, and a premium football ecommerce aesthetic.
 
@@ -9,6 +9,33 @@ npm run dev
 npm run build
 npm run typecheck
 ```
+
+## Firebase Hosting Deployment
+
+This project is configured for static Firebase Hosting. Next.js exports the production site into the `out` folder, and `firebase.json` deploys that folder.
+
+Set these values in `.env.local` before building:
+
+```bash
+NEXT_PUBLIC_SITE_URL=https://your-firebase-hosting-domain.web.app
+NEXT_PUBLIC_SITE_NAME=RVSN
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+NEXT_PUBLIC_FIREBASE_FUNCTIONS_REGION=us-central1
+```
+
+Build and deploy hosting only:
+
+```bash
+npm run build
+npm run hosting:deploy
+```
+
+Also add your Firebase Hosting domain to Firebase Authentication -> Settings -> Authorized domains.
 
 ## Firebase Environment
 

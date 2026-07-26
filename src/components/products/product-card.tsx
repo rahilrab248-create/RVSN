@@ -3,7 +3,7 @@
 import { ArrowUpRight } from "lucide-react";
 import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
 import Link from "next/link";
-import type { MouseEvent } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import { Price } from "@/components/currency/price";
 import type { CatalogProduct } from "@/config/products";
@@ -18,13 +18,20 @@ type ProductCardProps = {
 
 export function ProductCard({ product, index = 0 }: ProductCardProps) {
   const shouldReduceMotion = useReducedMotion();
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const [glitchKey, setGlitchKey] = useState(0);
+  const [isHoverGlitching, setIsHoverGlitching] = useState(false);
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
   const rotateX = useSpring(useTransform(mouseY, [-0.5, 0.5], [8, -8]), { stiffness: 180, damping: 18 });
   const rotateY = useSpring(useTransform(mouseX, [-0.5, 0.5], [-8, 8]), { stiffness: 180, damping: 18 });
 
+  useEffect(() => {
+    setIsTouchDevice(window.matchMedia("(pointer: coarse)").matches);
+  }, []);
+
   function handleMouseMove(event: MouseEvent<HTMLElement>) {
-    if (shouldReduceMotion || window.matchMedia("(pointer: coarse)").matches) {
+    if (shouldReduceMotion || isTouchDevice) {
       return;
     }
 
@@ -36,29 +43,44 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
   function handleMouseLeave() {
     mouseX.set(0);
     mouseY.set(0);
+    setIsHoverGlitching(false);
+  }
+
+  function handlePointerEnter() {
+    if (shouldReduceMotion || isTouchDevice) {
+      return;
+    }
+
+    setGlitchKey((current) => current + 1);
+    setIsHoverGlitching(true);
   }
 
   const productHref = product.detailHref ?? `/products/${product.id}`;
+  const glitchDirection = getGlitchDirection(index);
 
   return (
     <motion.article
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: "easeOut", delay: index * 0.045 }}
+      initial={shouldReduceMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: isTouchDevice ? 18 : 24, scale: isTouchDevice ? 0.985 : 1 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: isTouchDevice ? 0.42 : 0.5, ease: [0.16, 1, 0.3, 1], delay: shouldReduceMotion ? 0 : index * (isTouchDevice ? 0.035 : 0.045) }}
       onMouseMove={handleMouseMove}
+      onPointerEnter={handlePointerEnter}
       onMouseLeave={handleMouseLeave}
-      style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
-      className="group glass-panel flex h-full flex-col rounded-lg"
+      style={isTouchDevice || shouldReduceMotion ? undefined : { rotateX, rotateY, transformStyle: "preserve-3d" }}
+      className="product-card group flex h-full min-w-0 flex-col overflow-hidden rounded-[26px] border border-white/12 bg-[linear-gradient(180deg,#0b0a15_0%,#070711_100%)] shadow-2xl shadow-black/35"
     >
-      <Link href={productHref} className="flex flex-1 flex-col overflow-hidden rounded-lg">
-        <div className="relative overflow-hidden border-b border-slate-200">
-          <motion.div whileHover={{ scale: 1.06 }} transition={{ duration: 0.4, ease: "easeOut" }}>
+      <Link href={productHref} className="product-card-link flex flex-1 flex-col overflow-hidden rounded-[28px]">
+        <div className="product-card-media relative overflow-hidden border-b border-white/10">
+          <motion.div whileHover={isTouchDevice ? undefined : { scale: 1.06 }} transition={{ duration: 0.4, ease: "easeOut" }}>
             <ProductVisual
+              key={`${product.id}-${glitchKey}`}
               title={product.title}
               label={product.badge}
               colorway={product.colorway}
               imageUrl={product.imageUrl}
-              className="aspect-[4/5]"
+              className="product-card-visual aspect-[4/5]"
+              glitchDirection={glitchDirection}
+              isGlitching={isHoverGlitching}
             />
           </motion.div>
           <WishlistButton
@@ -68,30 +90,34 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
             className="absolute right-4 top-4"
           />
         </div>
-        <div className="flex flex-1 flex-col p-5">
+        <div className="product-card-body flex flex-1 flex-col bg-[#080812] p-5 pb-6">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className="line-clamp-1 min-h-4 text-xs font-bold uppercase tracking-[0.2em] text-slate-500">{product.brand}</p>
-              <h3 className="mt-2 line-clamp-2 min-h-[3.5rem] text-xl font-black leading-7 text-slate-950">
+              <p className="product-card-brand line-clamp-1 min-h-4 text-xs font-semibold uppercase tracking-[0.22em] text-violet-100/48">{product.brand}</p>
+              <h3 className="product-card-title mt-2 line-clamp-2 min-h-[3.45rem] text-[1.35rem] font-normal leading-[1.05] tracking-[-0.045em] text-white">
                 {product.title}
               </h3>
             </div>
-            <ArrowUpRight className="mt-1 shrink-0 text-slate-950 opacity-0 transition group-hover:opacity-100" size={20} />
+            <ArrowUpRight className="mt-1 shrink-0 text-violet-100/70 opacity-0 transition group-hover:opacity-100" size={20} />
           </div>
-          <div className="mt-auto flex items-center justify-between gap-3 pt-4">
+          <div className="product-card-meta mt-auto flex items-center justify-between gap-3 pt-6">
             <RatingStars rating={product.rating} />
-            <Price value={product.price} className="text-lg font-black text-slate-950" />
+            <Price value={product.price} className="text-lg font-semibold tracking-[-0.03em] text-white" />
           </div>
         </div>
       </Link>
-      <div className="px-5 pb-5">
+      <div className="product-card-action border-t border-white/10 bg-[#080812] px-5 pb-5 pt-4">
         <AddToCartButton
           product={product}
-          className="h-10 w-full"
+          className="h-11 w-full"
         >
           Quick add
         </AddToCartButton>
       </div>
     </motion.article>
   );
+}
+
+function getGlitchDirection(index: number) {
+  return ["left", "right", "up", "down", "diag"][index % 5] as "left" | "right" | "up" | "down" | "diag";
 }

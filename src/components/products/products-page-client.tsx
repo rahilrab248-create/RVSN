@@ -10,9 +10,13 @@ import type { Product } from "@/types/ecommerce";
 type ProductsPageClientProps = {
   products: CatalogProduct[];
   categories: CatalogCategory[];
+  initialCategory?: string;
 };
 
-export function ProductsPageClient({ products, categories }: ProductsPageClientProps) {
+const productCacheKey = "rvsn-firestore-products-v1";
+const productCacheTtlMs = 5 * 60 * 1000;
+
+export function ProductsPageClient({ products, categories, initialCategory }: ProductsPageClientProps) {
   const searchParams = useSearchParams();
   const search = searchParams.get("search") ?? "";
   const [liveProducts, setLiveProducts] = useState<CatalogProduct[]>(products);
@@ -21,6 +25,13 @@ export function ProductsPageClient({ products, categories }: ProductsPageClientP
 
   useEffect(() => {
     let isMounted = true;
+    const cachedProducts = readProductCache();
+
+    setLiveProducts(products);
+
+    if (cachedProducts?.length) {
+      setLiveProducts(mergeProducts(products, cachedProducts));
+    }
 
     getProducts()
       .then((firestoreProducts) => {
@@ -28,7 +39,9 @@ export function ProductsPageClient({ products, categories }: ProductsPageClientP
           return;
         }
 
-        setLiveProducts(mergeProducts(products, firestoreProducts.map((product) => mapFirestoreProduct(product, staticProductIds))));
+        const mappedProducts = firestoreProducts.map((product) => mapFirestoreProduct(product, staticProductIds));
+        writeProductCache(mappedProducts);
+        setLiveProducts(mergeProducts(products, mappedProducts));
       })
       .catch(() => {
         if (isMounted) {
@@ -41,7 +54,7 @@ export function ProductsPageClient({ products, categories }: ProductsPageClientP
     };
   }, [products, staticProductIds]);
 
-  return <ProductGrid products={liveProducts} categories={categories} initialSearch={search} syncMessage={syncMessage} />;
+  return <ProductGrid products={liveProducts} categories={categories} initialCategory={initialCategory} initialSearch={search} syncMessage={syncMessage} />;
 }
 
 function mergeProducts(localProducts: CatalogProduct[], firestoreProducts: CatalogProduct[]) {
@@ -83,4 +96,36 @@ function slugify(value: string) {
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function readProductCache() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const cached = JSON.parse(window.sessionStorage.getItem(productCacheKey) ?? "null") as
+      | { createdAt: number; products: CatalogProduct[] }
+      | null;
+
+    if (!cached || Date.now() - cached.createdAt > productCacheTtlMs) {
+      return null;
+    }
+
+    return cached.products;
+  } catch {
+    return null;
+  }
+}
+
+function writeProductCache(cachedProducts: CatalogProduct[]) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.sessionStorage.setItem(productCacheKey, JSON.stringify({ createdAt: Date.now(), products: cachedProducts }));
+  } catch {
+    // Browsers can reject storage in private mode. The page still works without cache.
+  }
 }

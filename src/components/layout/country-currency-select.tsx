@@ -29,7 +29,7 @@ export function CountryCurrencySelect({ isHome = false, compact = false, classNa
           "h-10 px-3 text-xs",
           isHome
             ? "border-white/30 bg-white/15 !text-white shadow-none hover:border-white hover:bg-white/25 focus:border-white focus:ring-white/15 [&>svg]:text-white"
-            : "border-slate-200 bg-slate-50 text-slate-950",
+            : "border-white/15 bg-white/8 !text-white shadow-none hover:border-violet-200 hover:bg-white/15 focus:border-violet-200 focus:ring-violet-300/15 [&>svg]:text-white",
         )}
       />
       {showSuggestion ? (
@@ -38,7 +38,7 @@ export function CountryCurrencySelect({ isHome = false, compact = false, classNa
           onClick={() => setCountryCode(suggestedCountry.countryCode)}
           className={cn(
             "text-left text-[10px] font-black uppercase tracking-[0.12em] transition",
-            isHome ? "text-white/80 hover:text-lime-200" : "text-slate-500 hover:text-slate-950",
+            isHome ? "text-white/80 hover:text-violet-200" : "text-violet-100/55 hover:text-white",
           )}
         >
           Use {suggestedCountry.flag} {suggestedCountry.countryName}

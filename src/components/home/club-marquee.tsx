@@ -52,8 +52,8 @@ export function ClubMarquee({ clubs }: ClubMarqueeProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 24 }}
-      whileInView={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, y: 28, filter: "blur(10px)" }}
+      whileInView={{ opacity: 1, y: 0, filter: "blur(0px)" }}
       viewport={{ once: true, margin: "-120px" }}
       transition={{ duration: 0.65, ease: "easeOut" }}
       className="relative mt-12 overflow-hidden py-2"
@@ -62,8 +62,8 @@ export function ClubMarquee({ clubs }: ClubMarqueeProps) {
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
     >
-      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-[#f8fafc] to-transparent sm:w-32" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-[#f8fafc] to-transparent sm:w-32" />
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-black to-transparent sm:w-32" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-black to-transparent sm:w-32" />
       <motion.div className="flex w-max gap-4 will-change-transform" style={{ x }}>
         <div ref={loopRef} className="flex gap-4 pr-4">
           {clubs.map((club) => (
@@ -93,23 +93,23 @@ function ClubBadge({ club, isPaused }: ClubBadgeProps) {
       whileHover={{ y: -6, scale: 1.02 }}
       transition={{ duration: 0.22, ease: "easeOut" }}
       className={cn(
-        "relative flex w-[250px] shrink-0 items-center gap-4 overflow-hidden rounded-lg border border-slate-200 bg-gradient-to-br p-4 sm:w-[300px]",
+        "relative flex w-[250px] shrink-0 items-center gap-4 overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-br p-4 sm:w-[300px]",
         club.pattern,
         club.glow,
       )}
     >
-      <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.72),transparent_42%,rgba(15,23,42,0.08))]" />
-      <div className="absolute -right-10 top-1/2 size-28 -translate-y-1/2 rounded-full border border-slate-300/50" />
+      <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.13),transparent_42%,rgba(0,0,0,0.28))]" />
+      <div className="absolute -right-10 top-1/2 size-28 -translate-y-1/2 rounded-full border border-white/10" />
       <motion.div
         animate={isPaused || shouldReduceMotion ? { y: 0 } : { y: [0, -2, 0] }}
         transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
-        className="relative grid size-16 shrink-0 place-items-center rounded-full border border-white/60 bg-white/80 p-2 backdrop-blur"
+        className="relative grid size-16 shrink-0 place-items-center rounded-full border border-white/20 bg-white/90 p-2 backdrop-blur"
       >
         <Image src={club.logoUrl} alt={`${club.name} logo`} width={52} height={52} className="relative size-12 object-contain" />
       </motion.div>
       <div className="relative min-w-0">
-        <p className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">{club.country}</p>
-        <h3 className="mt-1 truncate text-xl font-black text-slate-950">{club.name}</h3>
+        <p className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-white/50">{club.country}</p>
+        <h3 className="mt-1 truncate text-xl font-black text-white">{club.name}</h3>
       </div>
     </motion.article>
   );

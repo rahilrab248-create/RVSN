@@ -36,7 +36,7 @@ export function productFormToInput(form: ProductFormState): ProductInput {
     title: form.title.trim(),
     description: form.description.trim(),
     images: form.imageUrls
-      .split(/\r?\n|,/)
+      .split(/\r?\n/)
       .map((image) => image.trim())
       .filter(Boolean),
     category: form.category.trim(),

@@ -1,6 +1,6 @@
 "use client";
 
-import { doc, getDoc, getDocs, orderBy, query, serverTimestamp, setDoc, updateDoc, type Timestamp } from "firebase/firestore";
+import { doc, getDoc, getDocs, increment, limit, orderBy, query, serverTimestamp, setDoc, updateDoc, type Timestamp } from "firebase/firestore";
 import type { User } from "firebase/auth";
 import { getFirebaseDb } from "@/lib/firebase/client";
 import { collections } from "@/lib/firebase/collections";
@@ -27,7 +27,7 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
 }
 
 export async function getUsers(): Promise<UserProfile[]> {
-  const snapshot = await getDocs(query(usersCollectionRef(), orderBy("createdAt", "desc")));
+  const snapshot = await getDocs(query(usersCollectionRef(), orderBy("createdAt", "desc"), limit(50)));
   return snapshot.docs.map((item) => item.data());
 }
 
@@ -37,6 +37,8 @@ export async function createUserProfile(user: User, name?: string): Promise<User
     name: name ?? user.displayName ?? "Football Member",
     email: user.email ?? "",
     role: "user",
+    loginCount: 0,
+    provider: getUserProvider(user),
     createdAt: serverTimestamp(),
   };
 
@@ -63,4 +65,25 @@ export function updateUserProfile(uid: string, data: Partial<Pick<UserProfile, "
     ...data,
     updatedAt: serverTimestamp(),
   });
+}
+
+export function recordUserLogin(user: User) {
+  return setDoc(
+    userDocRef(user.uid),
+    {
+      uid: user.uid,
+      name: user.displayName ?? "Football Member",
+      email: user.email ?? "",
+      provider: getUserProvider(user),
+      lastLoginAt: serverTimestamp(),
+      lastSeenAt: serverTimestamp(),
+      loginCount: increment(1),
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+}
+
+function getUserProvider(user: User) {
+  return user.providerData[0]?.providerId ?? "password";
 }

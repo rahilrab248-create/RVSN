@@ -1,10 +1,11 @@
 "use client";
 
 import { LayoutDashboard, LogOut, Menu, Search, ShoppingBag, UserRound, X } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, type Variants } from "framer-motion";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { CountryCurrencySelect } from "@/components/layout/country-currency-select";
 import { navItems, siteConfig } from "@/config/site";
 import { useAuth } from "@/hooks/use-auth";
@@ -16,12 +17,15 @@ export function Navbar() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [currentHash, setCurrentHash] = useState("");
+  const [navHighlight, setNavHighlight] = useState({ x: 0, width: 0, visible: false });
+  const [isBrandCompact, setIsBrandCompact] = useState(false);
+  const navLinkRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
   const router = useRouter();
   const pathname = usePathname();
   const { isAuthenticated, isLoading, logout, profile } = useAuth();
   const { itemCount, openCart } = useCart();
   const isHome = pathname === "/";
-  const homeReadableStyle = isHome ? { color: "#ffffff" } : undefined;
+  const homeReadableStyle = { color: "#ffffff" };
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -57,24 +61,92 @@ export function Navbar() {
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    function updateBrandState() {
+      setIsBrandCompact(window.scrollY > 90);
+    }
+
+    updateBrandState();
+    window.addEventListener("scroll", updateBrandState, { passive: true });
+    return () => window.removeEventListener("scroll", updateBrandState);
+  }, []);
+
+  const activeNavHref = navItems.find((item) => isNavItemActive(pathname, item.href, currentHash))?.href ?? navItems[0]?.href;
+
+  function moveNavHighlight(href: string | undefined, visible = true) {
+    if (!href) {
+      setNavHighlight((value) => ({ ...value, visible: false }));
+      return;
+    }
+
+    const link = navLinkRefs.current[href];
+
+    if (!link) {
+      return;
+    }
+
+    setNavHighlight({
+      x: link.offsetLeft,
+      width: link.offsetWidth,
+      visible,
+    });
+  }
+
+  useEffect(() => {
+    moveNavHighlight(activeNavHref, Boolean(activeNavHref));
+
+    function handleResize() {
+      moveNavHighlight(activeNavHref, Boolean(activeNavHref));
+    }
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [activeNavHref]);
+
   return (
-    <header
-      className={cn(
-        "fixed inset-x-0 top-0 z-40 border-b backdrop-blur-2xl transition-colors",
-        isHome
-          ? "border-white/15 bg-slate-950/88 shadow-2xl shadow-slate-950/35"
-          : "border-slate-200 bg-white/92 shadow-sm shadow-slate-200/50",
-      )}
-    >
-      <nav className="container-shell flex h-20 items-center justify-between">
-        <Link href="/" className="flex items-center gap-3" aria-label={`${siteConfig.name} home`}>
-          <span className="grid size-10 place-items-center bg-lime-300 text-sm font-black text-slate-950 shadow-lg shadow-lime-950/20">
-            FT
+    <header className="pointer-events-none fixed inset-x-0 top-0 z-40 px-3 py-3 sm:px-4">
+      <nav className="mx-auto grid w-full max-w-[1900px] grid-cols-[auto_1fr_auto] items-start gap-3">
+        <Link
+          href="/"
+          className={cn("ft-brand-link pointer-events-auto", isBrandCompact && "is-compact")}
+          aria-label={`${siteConfig.name} home`}
+        >
+          <span className="ft-brand-mark" aria-hidden="true">
+            <Image
+              src="/images/brand/rvsn-logo-mark.png"
+              alt=""
+              width={48}
+              height={48}
+              priority
+              className="h-full w-full object-cover"
+            />
           </span>
-          <span className={cn("text-lg font-black uppercase tracking-[0.18em]", isHome ? "text-white" : "text-slate-950")}>{siteConfig.name}</span>
+          <motion.span
+            className="ft-brand-word"
+            animate={{
+              width: isBrandCompact ? 0 : "auto",
+              opacity: isBrandCompact ? 0 : 1,
+              x: isBrandCompact ? -8 : 0,
+            }}
+            transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
+          >
+            RVSN
+          </motion.span>
         </Link>
 
-        <div className="hidden items-center gap-8 lg:flex">
+        <div
+          className="aww-nav-pill pointer-events-auto mx-auto hidden h-16 w-full max-w-[865px] items-center justify-center gap-2 rounded-[18px] border border-white/10 px-2 shadow-[inset_0_1px_rgba(255,255,255,0.12)] backdrop-blur-2xl lg:flex"
+          onPointerLeave={() => moveNavHighlight(activeNavHref, Boolean(activeNavHref))}
+        >
+          <span
+            className="aww-nav-highlight"
+            style={{
+              transform: `translateX(${navHighlight.x}px)`,
+              width: `${navHighlight.width}px`,
+              opacity: navHighlight.visible ? 1 : 0,
+            }}
+            aria-hidden="true"
+          />
           {navItems.map((item) => {
             const isActive = isNavItemActive(pathname, item.href, currentHash);
 
@@ -82,39 +154,28 @@ export function Navbar() {
               <a
                 key={item.href}
                 href={item.href}
+                ref={(node) => {
+                  navLinkRefs.current[item.href] = node;
+                }}
                 className={cn(
-                  "group relative inline-flex h-10 items-center overflow-hidden px-1 text-sm font-black transition",
-                  isHome
-                    ? isActive
-                      ? "!text-white"
-                      : "!text-white hover:!text-lime-200"
-                    : isActive
-                      ? "text-slate-950"
-                      : "text-slate-600 hover:text-slate-950",
+                  "aww-nav-link group relative inline-flex h-11 items-center justify-center overflow-hidden px-6 text-base font-medium transition",
+                  isActive ? "!text-white" : "!text-white/84 hover:!text-white",
                 )}
                 style={homeReadableStyle}
+                onPointerEnter={() => moveNavHighlight(item.href)}
+                onFocus={() => moveNavHighlight(item.href)}
               >
                 <span className="relative z-10" style={homeReadableStyle}>{item.label}</span>
-                <span
-                  className={cn(
-                    "absolute inset-x-0 bottom-1 h-1 origin-left bg-lime-300 transition-transform duration-300",
-                    isActive ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100",
-                  )}
-                />
-                <span className="absolute inset-x-[-0.4rem] bottom-0 h-7 translate-y-2 rounded-full bg-lime-300/0 blur-xl transition group-hover:bg-lime-300/35" />
               </a>
             );
           })}
         </div>
 
-        <div className="hidden items-center gap-2 lg:flex">
-          <CountryCurrencySelect isHome={isHome} />
+        <div className="pointer-events-auto hidden items-center justify-end gap-2 lg:flex">
           <button
             className={cn(
-              "grid size-10 place-items-center border transition",
-              isHome
-                ? "border-white/30 bg-white/15 !text-white hover:border-white hover:bg-white/25 hover:!text-white"
-                : "border-slate-200 bg-slate-50 text-slate-700 hover:border-lime-300 hover:bg-lime-100 hover:text-slate-950",
+              "grid size-10 place-items-center rounded-[14px] border border-white/10 bg-white/8 shadow-[inset_0_1px_rgba(255,255,255,0.12)] backdrop-blur-2xl transition",
+              "!text-white hover:bg-white/14 hover:!text-white",
             )}
             style={homeReadableStyle}
             aria-label="Search"
@@ -124,10 +185,8 @@ export function Navbar() {
           </button>
           <button
             className={cn(
-              "relative grid size-10 place-items-center border transition",
-              isHome
-                ? "border-white/30 bg-white/15 !text-white hover:border-white hover:bg-white/25 hover:!text-white"
-                : "border-slate-200 bg-slate-50 text-slate-700 hover:border-lime-300 hover:bg-lime-100 hover:text-slate-950",
+              "relative grid size-10 place-items-center rounded-[14px] border border-white/10 bg-white/8 shadow-[inset_0_1px_rgba(255,255,255,0.12)] backdrop-blur-2xl transition",
+              "!text-white hover:bg-white/14 hover:!text-white",
             )}
             style={homeReadableStyle}
             aria-label="Open cart"
@@ -135,7 +194,7 @@ export function Navbar() {
           >
             <ShoppingBag size={18} />
             {itemCount ? (
-              <span className="absolute -right-2 -top-2 grid size-5 place-items-center rounded-full bg-lime-300 text-[10px] font-black text-slate-950">
+              <span className="absolute -right-2 -top-2 grid size-5 place-items-center rounded-full bg-violet-300 text-[10px] font-black text-black">
                 {itemCount}
               </span>
             ) : null}
@@ -145,10 +204,8 @@ export function Navbar() {
               <Link
                 href="/account"
                 className={cn(
-                  "grid size-10 place-items-center border transition",
-                  isHome
-                    ? "border-white/30 bg-white/15 !text-white hover:border-white hover:bg-white/25 hover:!text-white"
-                    : "border-slate-200 bg-slate-50 text-slate-700 hover:border-lime-300 hover:bg-lime-100 hover:text-slate-950",
+                  "grid size-10 place-items-center rounded-[14px] border border-white/10 bg-white/8 shadow-[inset_0_1px_rgba(255,255,255,0.12)] backdrop-blur-2xl transition",
+                  "!text-white hover:bg-white/14 hover:!text-white",
                 )}
                 style={homeReadableStyle}
                 aria-label="Account"
@@ -159,10 +216,8 @@ export function Navbar() {
                 <Link
                   href="/admin"
                   className={cn(
-                    "grid size-10 place-items-center border transition",
-                    isHome
-                      ? "border-white/30 bg-white/15 !text-white hover:border-white hover:bg-white/25 hover:!text-white"
-                      : "border-slate-200 bg-slate-50 text-slate-700 hover:border-lime-400 hover:bg-lime-100 hover:text-slate-950",
+                    "grid size-10 place-items-center rounded-[14px] border border-white/10 bg-white/8 shadow-[inset_0_1px_rgba(255,255,255,0.12)] backdrop-blur-2xl transition",
+                    "!text-white hover:bg-white/14 hover:!text-white",
                   )}
                   style={homeReadableStyle}
                   aria-label="Admin dashboard"
@@ -173,9 +228,7 @@ export function Navbar() {
               <button
                 className={cn(
                   "grid size-10 place-items-center border transition",
-                  isHome
-                    ? "border-white/30 bg-white/15 !text-white hover:border-white hover:bg-white/25 hover:!text-white"
-                    : "border-slate-200 bg-slate-50 text-slate-700 hover:border-lime-300 hover:bg-lime-100 hover:text-slate-950",
+                  "rounded-[14px] border-white/10 bg-white/8 !text-white shadow-[inset_0_1px_rgba(255,255,255,0.12)] backdrop-blur-2xl hover:bg-white/14 hover:!text-white",
                 )}
                 style={homeReadableStyle}
                 aria-label="Logout"
@@ -187,18 +240,19 @@ export function Navbar() {
           ) : (
             <Link
               href="/login"
-              className="inline-flex h-10 items-center justify-center bg-lime-300 px-5 text-sm font-extrabold text-slate-950 shadow-lg shadow-lime-950/20 transition hover:bg-white"
+              className="inline-flex h-10 items-center justify-center rounded-[14px] border border-white/14 bg-white/10 px-5 text-sm font-extrabold !text-white shadow-[inset_0_1px_rgba(255,255,255,0.12),0_18px_42px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition hover:border-white/28 hover:bg-white/18 hover:!text-white"
+              style={homeReadableStyle}
             >
               Login
             </Link>
           )}
         </div>
 
-        <div className="flex items-center gap-2 lg:hidden">
+        <div className="pointer-events-auto flex items-center justify-end gap-2 lg:hidden">
           <button
             className={cn(
               "grid size-10 place-items-center border",
-              isHome ? "border-white/30 bg-white/15 !text-white" : "border-slate-200 bg-slate-50 text-slate-950",
+              "rounded-[14px] border-white/10 bg-white/8 !text-white backdrop-blur-2xl",
             )}
             style={homeReadableStyle}
             aria-label="Search"
@@ -213,7 +267,7 @@ export function Navbar() {
           <button
             className={cn(
               "grid size-10 place-items-center border",
-              isHome ? "border-white/30 bg-white/15 !text-white" : "border-slate-200 bg-slate-50 text-slate-950",
+              "rounded-[14px] border-white/10 bg-white/8 !text-white backdrop-blur-2xl",
             )}
             style={homeReadableStyle}
             aria-label="Toggle navigation"
@@ -231,25 +285,28 @@ export function Navbar() {
       <AnimatePresence>
         {isSearchOpen ? (
           <motion.form
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
+            initial={{ height: 0, opacity: 0, y: -10, scale: 0.985 }}
+            animate={{ height: "auto", opacity: 1, y: 0, scale: 1 }}
+            exit={{ height: 0, opacity: 0, y: -8, scale: 0.985 }}
+            transition={{ duration: 0.46, ease: [0.16, 1, 0.3, 1] }}
             onSubmit={handleSearch}
-            className={cn("overflow-hidden border-t", isHome ? "border-white/10 bg-slate-950/92" : "border-slate-200 bg-white")}
+            className="pointer-events-auto mx-auto mt-2 w-[min(calc(100%_-_1.5rem),920px)] overflow-hidden rounded-[24px] border border-white/14 bg-white/8 shadow-[inset_0_1px_rgba(255,255,255,0.14),0_28px_80px_rgba(0,0,0,0.42),0_0_70px_rgba(124,58,237,0.14)] backdrop-blur-2xl"
           >
-            <div className="container-shell flex items-center gap-3 py-3">
-              <Search size={18} className={isHome ? "text-lime-200" : "text-slate-500"} />
+            <div className="flex items-center gap-3 p-2.5 sm:p-3">
+              <span className="grid size-11 shrink-0 place-items-center rounded-[16px] border border-white/10 bg-white/8 text-violet-100 shadow-[inset_0_1px_rgba(255,255,255,0.1)]">
+                <Search size={18} />
+              </span>
               <input
                 autoFocus
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search jerseys, boots, training gear..."
                 className={cn(
-                  "h-11 flex-1 bg-transparent text-sm font-semibold outline-none",
-                  isHome ? "text-white placeholder:text-slate-400" : "text-slate-950 placeholder:text-slate-500",
+                  "h-11 min-w-0 flex-1 rounded-[16px] border border-white/10 bg-black/20 px-4 text-sm font-semibold outline-none transition",
+                  "text-white placeholder:text-violet-100/42 focus:border-violet-200/70 focus:bg-black/28 focus:ring-4 focus:ring-violet-300/10",
                 )}
               />
-              <button className="h-10 bg-lime-300 px-4 text-sm font-extrabold !text-slate-950 transition hover:bg-white sm:px-5" type="submit">
+              <button className="h-11 shrink-0 rounded-[16px] bg-white px-4 text-sm font-extrabold !text-black shadow-[0_14px_36px_rgba(124,58,237,0.22)] transition hover:bg-violet-100 sm:px-6" type="submit">
                 Search
               </button>
             </div>
@@ -260,38 +317,47 @@ export function Navbar() {
       <AnimatePresence>
         {isOpen ? (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className={cn("overflow-hidden border-t lg:hidden", isHome ? "border-white/10 bg-slate-950/95" : "border-slate-200 bg-white")}
+            key="mobile-menu"
+            initial={{ height: 0, opacity: 0, y: -12, scale: 0.985 }}
+            animate={{ height: "auto", opacity: 1, y: 0, scale: 1 }}
+            exit={{ height: 0, opacity: 0, y: -10, scale: 0.985 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="aww-mobile-menu pointer-events-auto lg:hidden"
           >
-            <div className="container-shell grid gap-2 py-4">
-              <CountryCurrencySelect isHome={isHome} compact className="mb-2" />
+            <motion.div
+              className="grid gap-3"
+              initial="closed"
+              animate="open"
+              exit="closed"
+              variants={{
+                open: { transition: { staggerChildren: 0.045, delayChildren: 0.08 } },
+                closed: { transition: { staggerChildren: 0.025, staggerDirection: -1 } },
+              }}
+            >
               {navItems.map((item) => (
-                <a
+                <motion.a
                   key={item.href}
                   href={item.href}
+                  variants={mobileMenuItemVariants}
                   className={cn(
-                    "border px-4 py-3 text-sm font-black transition",
+                    "aww-mobile-menu-item",
                     isHome
                       ? isNavItemActive(pathname, item.href, currentHash)
-                        ? "border-lime-300 bg-lime-300 !text-slate-950"
-                        : "border-white/15 bg-white/[0.1] !text-white hover:border-white hover:bg-white/[0.18] hover:!text-white"
+                        ? "is-active"
+                        : ""
                       : isNavItemActive(pathname, item.href, currentHash)
-                        ? "border-lime-300 bg-lime-100 text-slate-950"
-                        : "border-slate-200 bg-slate-50 text-slate-700 hover:border-lime-300 hover:bg-lime-50 hover:text-slate-950",
+                        ? "is-active"
+                        : "",
                   )}
                   onClick={() => setIsOpen(false)}
                 >
                   {item.label}
-                </a>
+                </motion.a>
               ))}
-              <button
+              <motion.button
+                variants={mobileMenuItemVariants}
                 className={cn(
-                  "flex items-center justify-between border px-4 py-3 text-left text-sm font-semibold transition",
-                  isHome
-                    ? "border-white/15 bg-white/[0.1] !text-white hover:border-white hover:bg-white/[0.18] hover:!text-white"
-                    : "border-slate-200 bg-slate-50 text-slate-700",
+                  "aww-mobile-menu-item flex items-center justify-between text-left",
                 )}
                 onClick={() => {
                   setIsOpen(false);
@@ -299,36 +365,38 @@ export function Navbar() {
                 }}
               >
                 <span>Cart</span>
-                <span className="rounded-full bg-lime-300 px-2 py-0.5 text-xs font-black text-slate-950">{itemCount}</span>
-              </button>
+                <span className="rounded-full bg-violet-200 px-2.5 py-0.5 text-xs font-black text-black shadow-[0_0_18px_rgba(196,181,253,0.42)]">{itemCount}</span>
+              </motion.button>
               {!isLoading && isAuthenticated ? (
                 <>
-                  <Link
+                  <motion.div variants={mobileMenuItemVariants}>
+                    <Link
                     href="/account"
                     className={cn(
-                      "border px-4 py-3 text-sm font-semibold transition",
-                      isHome ? "border-white/15 bg-white/[0.1] !text-white hover:border-white hover:bg-white/[0.18] hover:!text-white" : "border-slate-200 bg-slate-50 text-slate-700",
+                      "aww-mobile-menu-item",
                     )}
                     onClick={() => setIsOpen(false)}
                   >
                     Account
-                  </Link>
-                  {profile?.role === "admin" ? (
-                    <Link
-                      href="/admin"
-                      className={cn(
-                        "border px-4 py-3 text-sm font-semibold transition",
-                        isHome ? "border-white/15 bg-white/[0.1] !text-white hover:border-white hover:bg-white/[0.18] hover:!text-white" : "border-slate-200 bg-slate-50 text-slate-700",
-                      )}
-                      onClick={() => setIsOpen(false)}
-                    >
-                      Admin dashboard
                     </Link>
+                  </motion.div>
+                  {profile?.role === "admin" ? (
+                    <motion.div variants={mobileMenuItemVariants}>
+                      <Link
+                        href="/admin"
+                        className={cn(
+                          "aww-mobile-menu-item",
+                        )}
+                        onClick={() => setIsOpen(false)}
+                      >
+                        Admin dashboard
+                      </Link>
+                    </motion.div>
                   ) : null}
-                  <button
+                  <motion.button
+                    variants={mobileMenuItemVariants}
                     className={cn(
-                      "border px-4 py-3 text-left text-sm font-semibold transition",
-                      isHome ? "border-white/15 bg-white/[0.1] !text-white hover:border-white hover:bg-white/[0.18] hover:!text-white" : "border-slate-200 bg-slate-50 text-slate-700",
+                      "aww-mobile-menu-item text-left",
                     )}
                     onClick={() => {
                       setIsOpen(false);
@@ -336,24 +404,46 @@ export function Navbar() {
                     }}
                   >
                     Logout
-                  </button>
+                  </motion.button>
                 </>
               ) : (
-                <Link
-                  href="/login"
-                  className="border border-lime-300/30 bg-lime-300 px-4 py-3 text-sm font-extrabold !text-slate-950"
-                  onClick={() => setIsOpen(false)}
-                >
-                  Login
-                </Link>
+                <motion.div variants={mobileMenuItemVariants}>
+                  <Link
+                    href="/login"
+                    className="aww-mobile-menu-item is-active"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    Login
+                  </Link>
+                </motion.div>
               )}
-            </div>
+              <motion.div variants={mobileMenuItemVariants}>
+                <CountryCurrencySelect isHome={isHome} compact className="aww-mobile-menu-select pt-1" />
+              </motion.div>
+            </motion.div>
           </motion.div>
         ) : null}
       </AnimatePresence>
     </header>
   );
 }
+
+const mobileMenuItemVariants: Variants = {
+  open: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    filter: "blur(0px)",
+    transition: { duration: 0.46, ease: [0.16, 1, 0.3, 1] },
+  },
+  closed: {
+    opacity: 0,
+    y: -10,
+    scale: 0.985,
+    filter: "blur(4px)",
+    transition: { duration: 0.22, ease: [0.4, 0, 1, 1] },
+  },
+};
 
 function isNavItemActive(pathname: string, href: string, currentHash: string) {
   if (href === "/products") {

@@ -1,27 +1,34 @@
 "use client";
 
-import { type Dispatch, type FormEvent, type ReactNode, type SetStateAction, useEffect, useMemo, useState } from "react";
+import { type Dispatch, type FormEvent, type ReactNode, type SetStateAction, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowDown,
+  ArrowUp,
   BadgeDollarSign,
+  Bell,
   Boxes,
   CheckCircle2,
   Edit3,
-  Loader2,
   PackagePlus,
+  ReceiptText,
   Search,
   ShieldCheck,
   ShoppingBag,
+  Star,
   Trash2,
   Upload,
+  X,
+  UserPlus,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { Timestamp } from "firebase/firestore";
 import Image from "next/image";
-import { catalogProducts } from "@/config/products";
+import { catalogProducts, type CatalogProduct } from "@/config/products";
 import { CustomSelect } from "@/components/ui/custom-select";
-import { createProduct, deleteProduct, getProducts, updateProduct, upsertProduct } from "@/lib/firebase/products";
+import { createProduct, deleteProduct, getProducts, upsertProduct } from "@/lib/firebase/products";
 import { getOrders, updateOrderStatus } from "@/lib/firebase/orders";
 import { getUsers, updateUserProfile } from "@/lib/firebase/users";
-import { uploadFile } from "@/lib/firebase/storage";
+import { sendOrderWhatsAppNotification } from "@/lib/notifications/whatsapp-client";
 import { cn } from "@/lib/utils";
 import { createEmptyProductForm, productFormToInput, type AdminTab, type ProductFormState } from "@/types/admin";
 import type { Order, OrderStatus, Product } from "@/types/ecommerce";
@@ -41,9 +48,20 @@ const userRoleOptions = [
   { label: "User", value: "user" },
   { label: "Admin", value: "admin" },
 ];
+const adminNotificationStorageKey = "rvsn-admin-read-notifications-v1";
+const maxProductGalleryImages = 4;
+
+type AdminNotification = {
+  id: string;
+  type: "user" | "order";
+  title: string;
+  message: string;
+  timestamp: number;
+};
 
 export function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
+  const [tabHighlight, setTabHighlight] = useState({ x: 0, width: 0, visible: false });
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -53,9 +71,33 @@ export function AdminDashboard() {
   const [isSaving, setIsSaving] = useState(false);
   const [notice, setNotice] = useState("");
   const [noticeTone, setNoticeTone] = useState<"success" | "error">("success");
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
+  const [visibleNotifications, setVisibleNotifications] = useState<AdminNotification[]>([]);
+  const tabButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   useEffect(() => {
     void loadAdminData();
+  }, []);
+
+  useEffect(() => {
+    moveTabHighlight(activeTab, true);
+
+    function handleResize() {
+      moveTabHighlight(activeTab, true);
+    }
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [activeTab]);
+
+  useEffect(() => {
+    try {
+      const storedIds = window.localStorage.getItem(adminNotificationStorageKey);
+      setReadNotificationIds(storedIds ? JSON.parse(storedIds) as string[] : []);
+    } catch {
+      setReadNotificationIds([]);
+    }
   }, []);
 
   async function loadAdminData() {
@@ -70,7 +112,7 @@ export function AdminDashboard() {
       const errors: string[] = [];
 
       if (productsResult.status === "fulfilled") {
-        setProducts(productsResult.value);
+        setProducts(mergeCatalogAndFirestoreProducts(productsResult.value));
       } else {
         errors.push(getAdminErrorMessage(productsResult.reason));
       }
@@ -119,6 +161,45 @@ export function AdminDashboard() {
     );
   }, [products, query]);
 
+  const notifications = useMemo(() => buildAdminNotifications(users, orders), [users, orders]);
+  const unreadNotificationCount = notifications.filter((notification) => !readNotificationIds.includes(notification.id)).length;
+
+  function openNotifications() {
+    setIsNotificationOpen((current) => {
+      const nextOpen = !current;
+
+      if (nextOpen) {
+        const unreadNotifications = notifications.filter((notification) => !readNotificationIds.includes(notification.id));
+        setVisibleNotifications(unreadNotifications);
+
+        if (!unreadNotifications.length) {
+          return nextOpen;
+        }
+
+        const nextReadIds = Array.from(new Set([...readNotificationIds, ...unreadNotifications.map((notification) => notification.id)])).slice(-80);
+        setReadNotificationIds(nextReadIds);
+        window.localStorage.setItem(adminNotificationStorageKey, JSON.stringify(nextReadIds));
+      }
+
+      return nextOpen;
+    });
+  }
+
+  function moveTabHighlight(tabId: AdminTab, visible = true) {
+    const button = tabButtonRefs.current[tabId];
+
+    if (!button) {
+      setTabHighlight((current) => ({ ...current, visible: false }));
+      return;
+    }
+
+    setTabHighlight({
+      x: button.offsetLeft,
+      width: button.offsetWidth,
+      visible,
+    });
+  }
+
   async function submitProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSaving(true);
@@ -144,17 +225,19 @@ export function AdminDashboard() {
       }
 
       if (form.id) {
-        await withTimeout(updateProduct(form.id, input), "Product update timed out. Check your admin role and Firestore rules.");
+        await withTimeout(upsertProduct(form.id, input), "Product update timed out. Check your admin role and Firestore rules.");
         setNotice("Product updated.");
       } else {
         await withTimeout(createProduct(input), "Product save timed out. Check your admin role and Firestore rules.");
         setNotice("Product added.");
       }
 
+      clearProductCache();
       setNoticeTone("success");
       setForm(createEmptyProductForm());
       try {
-        setProducts(await withTimeout(getProducts(), "Product saved, but the catalog refresh timed out."));
+        const refreshedProducts = await withTimeout(getProducts(), "Product saved, but the catalog refresh timed out.");
+        setProducts(mergeCatalogAndFirestoreProducts(refreshedProducts));
       } catch (refreshError) {
         setNoticeTone("error");
         setNotice(`${getAdminErrorMessage(refreshError)} Refresh the dashboard to see the saved product.`);
@@ -176,17 +259,28 @@ export function AdminDashboard() {
     setNotice("");
 
     try {
-      const safeName = file.name.toLowerCase().replace(/[^a-z0-9.]+/g, "-");
-      const result = await withTimeout(
-        uploadFile(`products/${Date.now()}-${safeName}`, file, { contentType: file.type }),
-        "Image upload timed out. Check your admin role and Storage rules.",
-      );
+      if (!file.type.startsWith("image/")) {
+        throw new Error("Please upload an image file.");
+      }
+
+      if (file.size > 8 * 1024 * 1024) {
+        throw new Error("Image is too large. Please upload an image under 8 MB.");
+      }
+
+      const currentImages = parseProductImageUrls(form.imageUrls);
+
+      if (currentImages.length >= maxProductGalleryImages) {
+        throw new Error(`You can add up to ${maxProductGalleryImages} images per product. Remove one image before uploading another.`);
+      }
+
+      const imageUrl = await compressImageForFirestore(file);
+
       setForm((current) => ({
         ...current,
-        imageUrls: [current.imageUrls, result.url].filter(Boolean).join("\n"),
+        imageUrls: serializeProductImageUrls([...parseProductImageUrls(current.imageUrls), imageUrl]),
       }));
       setNoticeTone("success");
-      setNotice("Image uploaded.");
+      setNotice("Image compressed and ready for Firestore-only mode.");
     } catch (error) {
       setNoticeTone("error");
       setNotice(getAdminErrorMessage(error));
@@ -203,6 +297,7 @@ export function AdminDashboard() {
     setIsSaving(true);
     try {
       await withTimeout(deleteProduct(productId), "Product delete timed out. Check your admin role and Firestore rules.");
+      clearProductCache();
       setProducts((current) => current.filter((product) => product.id !== productId));
       setNoticeTone("success");
       setNotice("Product deleted.");
@@ -239,7 +334,9 @@ export function AdminDashboard() {
         "Starter products took too long to create. Check your admin role and Firestore rules.",
       );
 
-      setProducts(await withTimeout(getProducts(), "Starter products were created, but the catalog refresh timed out."));
+      clearProductCache();
+      const refreshedProducts = await withTimeout(getProducts(), "Starter products were created, but the catalog refresh timed out.");
+      setProducts(mergeCatalogAndFirestoreProducts(refreshedProducts));
       setNoticeTone("success");
       setNotice(`Starter product database created with ${catalogProducts.length} products.`);
     } catch (error) {
@@ -255,10 +352,23 @@ export function AdminDashboard() {
       return;
     }
 
+    const currentOrder = orders.find((order) => order.id === orderId);
     setIsSaving(true);
     try {
       await withTimeout(updateOrderStatus(orderId, status), "Order update timed out. Check your admin role and Firestore rules.");
       setOrders((current) => current.map((order) => (order.id === orderId ? { ...order, status } : order)));
+      if (currentOrder) {
+        void sendOrderWhatsAppNotification({
+          event: "order_status_changed",
+          orderId,
+          order: {
+            ...currentOrder,
+            status,
+          },
+          previousStatus: currentOrder.status,
+          nextStatus: status,
+        });
+      }
       setNoticeTone("success");
       setNotice("Order status updated.");
     } catch (error) {
@@ -285,22 +395,43 @@ export function AdminDashboard() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f5f7fb] pt-24 text-slate-950">
-      <section className="mx-auto w-full max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
+    <main className="purple-page-shell min-h-screen border-b border-white/10 pt-24 text-white">
+      <section className="container-shell w-full pb-16">
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-lime-700">Admin control room</p>
-            <h1 className="mt-3 text-4xl font-black tracking-tight sm:text-5xl">Football commerce dashboard</h1>
-            <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-violet-100/56">Admin control room</p>
+            <h1 className="mt-3 text-4xl font-normal leading-none tracking-[-0.06em] text-white sm:text-5xl">RVSN Commerce dashboard</h1>
+            <p className="mt-4 max-w-2xl text-sm font-semibold leading-6 text-violet-100/62">
               Manage products, stock, orders, customers, and payment-driven sales from one responsive admin surface.
             </p>
           </div>
-          <button
-            onClick={() => void loadAdminData()}
-            className="h-11 bg-slate-950 px-5 text-sm font-black text-white transition hover:bg-lime-500 hover:text-slate-950"
-          >
-            Refresh data
-          </button>
+          <div className="relative flex items-center gap-3">
+            <button
+              type="button"
+              onClick={openNotifications}
+              className="relative grid size-11 place-items-center rounded-full border border-white/14 bg-white/8 text-white transition hover:border-violet-200/45 hover:bg-white/14"
+              aria-label="Open admin notifications"
+              aria-expanded={isNotificationOpen}
+            >
+              <Bell size={18} />
+              {unreadNotificationCount ? (
+                <span className="absolute -right-1 -top-1 grid min-w-5 place-items-center rounded-full bg-violet-200 px-1.5 py-0.5 text-[0.65rem] font-black text-black shadow-lg shadow-violet-500/25">
+                  {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
+                </span>
+              ) : null}
+            </button>
+            <button
+              onClick={() => void loadAdminData()}
+              className="h-11 rounded-full border border-white/14 bg-white/8 px-5 text-sm font-semibold text-white transition hover:border-violet-200/45 hover:bg-white/14"
+            >
+              Refresh data
+            </button>
+            <AdminNotificationsPanel
+              isOpen={isNotificationOpen}
+              notifications={visibleNotifications}
+              onClose={() => setIsNotificationOpen(false)}
+            />
+          </div>
         </div>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -310,16 +441,33 @@ export function AdminDashboard() {
           <Metric icon={<ShieldCheck size={21} />} label="Low stock" value={analytics.lowStock.toString()} danger={analytics.lowStock > 0} />
         </div>
 
-        <div className="mt-8 flex gap-2 overflow-x-auto border-b border-slate-200">
+        <div
+          className="admin-tab-pill mt-8 flex gap-2 overflow-x-auto rounded-[24px] border border-white/10 p-2 backdrop-blur-xl"
+          onPointerLeave={() => moveTabHighlight(activeTab, true)}
+        >
+          <span
+            className="admin-tab-highlight"
+            style={{
+              transform: `translateX(${tabHighlight.x}px)`,
+              width: `${tabHighlight.width}px`,
+              opacity: tabHighlight.visible ? 1 : 0,
+            }}
+            aria-hidden="true"
+          />
           {tabs.map((tab) => (
             <button
               key={tab.id}
+              ref={(node) => {
+                tabButtonRefs.current[tab.id] = node;
+              }}
               onClick={() => setActiveTab(tab.id)}
+              onPointerEnter={() => moveTabHighlight(tab.id)}
+              onFocus={() => moveTabHighlight(tab.id)}
               className={cn(
-                "h-12 shrink-0 px-4 text-sm font-black transition",
+                "admin-tab-link relative z-10 h-11 shrink-0 rounded-[16px] px-5 text-sm font-semibold transition",
                 activeTab === tab.id
-                  ? "border-b-2 border-lime-500 text-slate-950"
-                  : "text-slate-500 hover:text-slate-950",
+                  ? "text-white"
+                  : "text-violet-100/55 hover:text-white",
               )}
             >
               {tab.label}
@@ -327,27 +475,10 @@ export function AdminDashboard() {
           ))}
         </div>
 
-        <AnimatePresence>
-          {notice ? (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className={cn(
-                "mt-5 flex items-start gap-3 border p-4 text-sm font-bold",
-                noticeTone === "success" ? "border-lime-300 bg-lime-50 text-lime-800" : "border-red-200 bg-red-50 text-red-700",
-              )}
-            >
-              <CheckCircle2 className="mt-0.5 shrink-0" size={18} />
-              <span>{notice}</span>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+        <AdminToast notice={notice} tone={noticeTone} onClose={() => setNotice("")} />
 
         {isLoading ? (
-          <div className="grid min-h-80 place-items-center">
-            <Loader2 className="animate-spin text-lime-600" size={28} />
-          </div>
+          <AdminDashboardSkeleton />
         ) : (
           <motion.div
             key={activeTab}
@@ -396,41 +527,333 @@ export function AdminDashboard() {
   );
 }
 
+function AdminToast({ notice, tone, onClose }: { notice: string; tone: "success" | "error"; onClose: () => void }) {
+  return (
+    <AnimatePresence>
+      {notice ? (
+        <motion.div
+          initial={{ opacity: 0, y: -18, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -12, scale: 0.96 }}
+          transition={{ duration: 0.24, ease: "easeOut" }}
+          className="fixed right-4 top-24 z-[90] w-[min(calc(100vw-2rem),420px)] sm:right-6"
+          role="status"
+          aria-live="polite"
+        >
+          <div
+            className={cn(
+              "flex items-start gap-3 rounded-[24px] border p-4 pr-12 text-sm font-semibold shadow-2xl shadow-black/35 backdrop-blur-2xl",
+              tone === "success"
+                ? "border-emerald-200/24 bg-[linear-gradient(135deg,rgba(16,185,129,0.22),rgba(12,10,20,0.9))] text-emerald-50"
+                : "border-red-200/24 bg-[linear-gradient(135deg,rgba(248,113,113,0.22),rgba(12,10,20,0.92))] text-red-50",
+            )}
+          >
+            <span
+              className={cn(
+                "grid size-10 shrink-0 place-items-center rounded-2xl border",
+                tone === "success" ? "border-emerald-200/24 bg-emerald-300/14" : "border-red-200/24 bg-red-300/14",
+              )}
+            >
+              <CheckCircle2 size={19} />
+            </span>
+            <span className="pt-2 leading-5">{notice}</span>
+            <button
+              type="button"
+              onClick={onClose}
+              className="absolute right-3 top-3 grid size-8 place-items-center rounded-full border border-white/10 bg-white/8 text-white/70 transition hover:bg-white/14 hover:text-white"
+              aria-label="Close notification"
+            >
+              x
+            </button>
+          </div>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+function AdminNotificationsPanel({
+  isOpen,
+  notifications,
+  onClose,
+}: {
+  isOpen: boolean;
+  notifications: AdminNotification[];
+  onClose: () => void;
+}) {
+  return (
+    <AnimatePresence>
+      {isOpen ? (
+        <motion.div
+          initial={{ opacity: 0, y: -10, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -10, scale: 0.96 }}
+          transition={{ duration: 0.22, ease: "easeOut" }}
+          className="absolute right-0 top-[calc(100%+0.75rem)] z-[95] w-[min(calc(100vw-2rem),430px)] overflow-hidden rounded-[28px] border border-white/12 bg-[#08040f]/94 shadow-[0_28px_90px_rgba(0,0,0,0.55)] backdrop-blur-2xl"
+        >
+          <div className="flex items-start justify-between gap-4 border-b border-white/10 p-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-100/48">Notifications</p>
+              <h2 className="mt-1 text-xl font-normal tracking-[-0.04em] text-white">Admin activity</h2>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="grid size-9 place-items-center rounded-full border border-white/10 bg-white/8 text-white/70 transition hover:bg-white/14 hover:text-white"
+              aria-label="Close notifications"
+            >
+              x
+            </button>
+          </div>
+          <div data-lenis-prevent className="max-h-[420px] overflow-y-auto overscroll-contain p-3">
+            {notifications.length ? (
+              <div className="grid gap-2">
+                {notifications.map((notification) => (
+                  <article key={notification.id} className="flex gap-3 rounded-[22px] border border-white/10 bg-white/[0.055] p-3">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-2xl border border-violet-200/20 bg-violet-300/12 text-violet-100">
+                      {notification.type === "order" ? <ReceiptText size={18} /> : <UserPlus size={18} />}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-sm font-semibold text-white">{notification.title}</h3>
+                        <span className="text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-violet-100/42">
+                          {formatNotificationTime(notification.timestamp)}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm font-semibold leading-5 text-violet-100/62">{notification.message}</p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="grid min-h-40 place-items-center rounded-[22px] border border-white/10 bg-white/[0.045] p-6 text-center">
+                <div>
+                  <Bell className="mx-auto text-violet-100/55" size={24} />
+                  <p className="mt-3 text-sm font-semibold text-white">No notifications yet.</p>
+                  <p className="mt-1 text-xs font-semibold text-violet-100/44">New signups and orders will appear here.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+function AdminDashboardSkeleton() {
+  return (
+    <div className="mt-6 grid gap-5 xl:grid-cols-[1fr_380px]" aria-label="Loading admin dashboard">
+      <section className="rounded-[28px] border border-white/10 bg-white/[0.055] p-5 shadow-2xl shadow-black/25 backdrop-blur-xl">
+        <div className="mb-6">
+          <SkeletonBlock className="h-3 w-28 rounded-full" />
+          <SkeletonBlock className="mt-3 h-8 w-56 rounded-full" />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="rounded-[18px] border border-white/10 bg-white/[0.055] p-4">
+              <SkeletonBlock className="h-3 w-24 rounded-full" />
+              <SkeletonBlock className="mt-4 h-8 w-16 rounded-full" />
+            </div>
+          ))}
+        </div>
+        <div className="mt-6 grid gap-5 lg:grid-cols-2">
+          {Array.from({ length: 2 }).map((_, panelIndex) => (
+            <div key={panelIndex}>
+              <SkeletonBlock className="mb-3 h-3 w-28 rounded-full" />
+              <div className="grid gap-3">
+                {Array.from({ length: 4 }).map((__, rowIndex) => (
+                  <div key={rowIndex} className="rounded-[18px] border border-white/10 bg-white/[0.055] p-4">
+                    <SkeletonBlock className="h-4 w-40 rounded-full" />
+                    <SkeletonBlock className="mt-2 h-3 w-56 max-w-full rounded-full" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="rounded-[28px] border border-white/10 bg-white/[0.055] p-5 shadow-2xl shadow-black/25 backdrop-blur-xl">
+        <SkeletonBlock className="h-3 w-24 rounded-full" />
+        <SkeletonBlock className="mt-3 h-8 w-44 rounded-full" />
+        <div className="mt-6 grid gap-4">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="grid gap-2">
+              <div className="flex items-center justify-between gap-4">
+                <SkeletonBlock className="h-4 w-40 rounded-full" />
+                <SkeletonBlock className="h-4 w-8 rounded-full" />
+              </div>
+              <SkeletonBlock className="h-2 w-full rounded-full" />
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function SkeletonBlock({ className }: { className: string }) {
+  return <div className={cn("skeleton-shimmer bg-white/[0.075]", className)} />;
+}
+
+function buildAdminNotifications(users: UserProfile[], orders: Order[]): AdminNotification[] {
+  const userNotifications = users.map((user) => ({
+    id: `user:${user.uid}`,
+    type: "user" as const,
+    title: "New user signup",
+    message: `${user.name || "Football member"} joined with ${user.email}.`,
+    timestamp: profileTimestampMillis(user.createdAt),
+  }));
+
+  const orderNotifications = orders.map((order) => ({
+    id: `order:${order.id ?? order.orderNumber ?? order.createdAt?.seconds ?? order.shippingAddress.email}`,
+    type: "order" as const,
+    title: "New product order",
+    message: `${order.shippingAddress.name} ordered ${order.items.length} ${order.items.length === 1 ? "item" : "items"} for $${order.total}. Status: ${getOrderStatusLabel(order.status)}.`,
+    timestamp: ecommerceTimestampMillis(order.createdAt),
+  }));
+
+  return [...userNotifications, ...orderNotifications]
+    .filter((notification) => notification.timestamp > 0)
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, 20);
+}
+
+function ecommerceTimestampMillis(value: Order["createdAt"] | undefined) {
+  if (!value) {
+    return 0;
+  }
+
+  if ("toMillis" in value && typeof value.toMillis === "function") {
+    return value.toMillis();
+  }
+
+  return 0;
+}
+
+function formatNotificationTime(timestamp: number) {
+  const diff = Date.now() - timestamp;
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+
+  if (diff < minute) {
+    return "Just now";
+  }
+
+  if (diff < hour) {
+    return `${Math.max(1, Math.floor(diff / minute))}m ago`;
+  }
+
+  if (diff < day) {
+    return `${Math.floor(diff / hour)}h ago`;
+  }
+
+  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(timestamp));
+}
+
+function mergeCatalogAndFirestoreProducts(firestoreProducts: Product[]) {
+  const merged = new Map<string, Product>();
+
+  catalogProducts.forEach((product) => {
+    merged.set(product.id, catalogProductToAdminProduct(product));
+  });
+
+  firestoreProducts.forEach((product) => {
+    if (product.id) {
+      merged.set(product.id, product);
+    } else {
+      merged.set(`${product.brand}-${product.title}`, product);
+    }
+  });
+
+  return Array.from(merged.values());
+}
+
+function catalogProductToAdminProduct(product: CatalogProduct): Product {
+  const timestamp = Timestamp.fromMillis(0);
+
+  return {
+    id: product.id,
+    title: product.title,
+    description: product.description,
+    images: product.images.length ? product.images : [product.imageUrl],
+    category: product.category,
+    brand: product.brand,
+    sizes: product.sizes,
+    stock: product.stock,
+    price: product.price,
+    rating: product.rating,
+    featured: product.featured,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
 function Metric({ icon, label, value, danger = false }: { icon: ReactNode; label: string; value: string; danger?: boolean }) {
   return (
-    <article className="border border-slate-200 bg-white p-5 shadow-lg shadow-slate-200/60">
+    <article className="rounded-[24px] border border-white/10 bg-white/[0.055] p-5 shadow-2xl shadow-black/20 backdrop-blur-xl">
       <div className="flex items-center justify-between">
-        <span className={cn("grid size-11 place-items-center", danger ? "bg-red-50 text-red-600" : "bg-lime-100 text-slate-950")}>
+        <span className={cn("grid size-11 place-items-center rounded-2xl border", danger ? "border-red-300/30 bg-red-400/12 text-red-100" : "border-violet-200/20 bg-white/10 text-violet-100")}>
           {icon}
         </span>
-        <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{label}</span>
+        <span className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-100/42">{label}</span>
       </div>
-      <p className="mt-5 text-3xl font-black">{value}</p>
+      <p className="mt-5 text-3xl font-normal tracking-[-0.05em] text-white">{value}</p>
     </article>
   );
 }
 
 function Overview({ products, orders, users, paidOrders }: { products: Product[]; orders: Order[]; users: UserProfile[]; paidOrders: number }) {
   const recentOrders = orders.slice(0, 5);
+  const recentUsers = users
+    .slice()
+    .sort((a, b) => profileTimestampMillis(b.lastLoginAt ?? b.createdAt) - profileTimestampMillis(a.lastLoginAt ?? a.createdAt))
+    .slice(0, 5);
 
   return (
     <div className="grid gap-5 xl:grid-cols-[1fr_380px]">
       <Panel title="Sales analytics" eyebrow="Performance">
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-4">
           <MiniStat label="Conversion orders" value={paidOrders.toString()} />
           <MiniStat label="Average order" value={`$${orders.length ? (orders.reduce((sum, order) => sum + order.total, 0) / orders.length).toFixed(0) : 0}`} />
           <MiniStat label="Customers" value={users.length.toString()} />
+          <MiniStat label="COD pending" value={orders.filter((order) => order.paymentStatus === "unpaid").length.toString()} />
         </div>
-        <div className="mt-6 grid gap-3">
-          {recentOrders.map((order) => (
-            <div key={order.id} className="flex items-center justify-between border border-slate-100 bg-slate-50 p-4">
-              <div>
-                <p className="text-sm font-black">{order.shippingAddress.name}</p>
-                <p className="mt-1 text-xs font-semibold text-slate-500">{order.items.length} items / {order.status}</p>
-              </div>
-              <p className="text-sm font-black text-lime-700">${order.total}</p>
+        <div className="mt-6 grid gap-5 lg:grid-cols-2">
+          <div>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-violet-100/48">Recent orders</p>
+            <div className="grid gap-3">
+              {recentOrders.map((order) => (
+                <div key={order.id} className="flex items-center justify-between gap-4 rounded-[18px] border border-white/10 bg-white/[0.055] p-4">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-white">{order.shippingAddress.name}</p>
+                    <p className="mt-1 text-xs font-semibold text-violet-100/46">
+                      {order.orderNumber ?? order.id} / {order.paymentMethod ?? "cash_on_delivery"} / {order.paymentStatus ?? "unpaid"}
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-sm font-semibold text-violet-100">${order.total}</p>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+          <div>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-violet-100/48">Recent users</p>
+            <div className="grid gap-3">
+              {recentUsers.map((user) => (
+                <div key={user.uid} className="flex items-center justify-between gap-4 rounded-[18px] border border-white/10 bg-white/[0.055] p-4">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-white">{user.name}</p>
+                    <p className="mt-1 truncate text-xs font-semibold text-violet-100/46">{user.email}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-xs font-semibold uppercase text-violet-100">{user.provider ?? "password"}</p>
+                    <p className="mt-1 text-xs font-semibold text-violet-100/46">{user.loginCount ?? 0} logins</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </Panel>
       <Panel title="Inventory watch" eyebrow="Stock health">
@@ -441,14 +864,26 @@ function Overview({ products, orders, users, paidOrders }: { products: Product[]
             .slice(0, 6)
             .map((product) => (
               <div key={product.id} className="flex items-center justify-between gap-3">
-                <span className="line-clamp-1 text-sm font-bold text-slate-700">{product.title}</span>
-                <span className={cn("text-sm font-black", product.stock <= 5 ? "text-red-600" : "text-slate-950")}>{product.stock}</span>
+                <span className="line-clamp-1 text-sm font-semibold text-violet-100/76">{product.title}</span>
+                <span className={cn("text-sm font-semibold", product.stock <= 5 ? "text-red-200" : "text-white")}>{product.stock}</span>
               </div>
             ))}
         </div>
       </Panel>
     </div>
   );
+}
+
+function profileTimestampMillis(value: UserProfile["createdAt"] | undefined) {
+  if (!value) {
+    return 0;
+  }
+
+  if ("toMillis" in value && typeof value.toMillis === "function") {
+    return value.toMillis();
+  }
+
+  return value instanceof Date ? value.getTime() : 0;
 }
 
 function ProductsPanel(props: {
@@ -465,6 +900,38 @@ function ProductsPanel(props: {
   seedStarterProducts: () => void;
 }) {
   const { form, setForm, products, query, setQuery, isSaving, submitProduct, uploadProductImage, editProduct, removeProduct, seedStarterProducts } = props;
+  const galleryImages = parseProductImageUrls(form.imageUrls);
+
+  function setGalleryImages(images: string[]) {
+    setForm((current) => ({ ...current, imageUrls: serializeProductImageUrls(images) }));
+  }
+
+  function removeGalleryImage(index: number) {
+    setGalleryImages(galleryImages.filter((_, imageIndex) => imageIndex !== index));
+  }
+
+  function moveGalleryImage(index: number, direction: -1 | 1) {
+    const nextIndex = index + direction;
+
+    if (nextIndex < 0 || nextIndex >= galleryImages.length) {
+      return;
+    }
+
+    const nextImages = [...galleryImages];
+    const [image] = nextImages.splice(index, 1);
+    nextImages.splice(nextIndex, 0, image);
+    setGalleryImages(nextImages);
+  }
+
+  function makeCoverImage(index: number) {
+    if (index === 0) {
+      return;
+    }
+
+    const nextImages = [...galleryImages];
+    const [image] = nextImages.splice(index, 1);
+    setGalleryImages([image, ...nextImages]);
+  }
 
   return (
     <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
@@ -474,27 +941,92 @@ function ProductsPanel(props: {
           <AdminInput label="Brand" value={form.brand} onChange={(value) => setForm((current) => ({ ...current, brand: value }))} />
           <AdminInput label="Category" value={form.category} onChange={(value) => setForm((current) => ({ ...current, category: value }))} />
           <label className="grid gap-2">
-            <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Image URLs</span>
-            <textarea
-              value={form.imageUrls}
-              onChange={(event) => setForm((current) => ({ ...current, imageUrls: event.target.value }))}
-              placeholder={"Add one image URL per line\n/images/products/front.webp\n/images/products/back.webp\n/images/products/detail.webp"}
-              className="min-h-28 border border-slate-200 bg-slate-50 p-3 text-sm font-bold text-slate-950 outline-none focus:border-lime-500"
-            />
-            <span className="text-xs font-semibold text-slate-500">Use three different image URLs for front, back, and detail gallery images.</span>
-          </label>
-          <label className="grid gap-2">
-            <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">Upload image</span>
-            <span className="flex h-12 cursor-pointer items-center justify-center gap-2 border border-dashed border-slate-300 bg-slate-50 text-sm font-black text-slate-700 transition hover:border-lime-500 hover:bg-lime-50">
-              <Upload size={17} /> Choose product image
-              <input type="file" accept="image/*" className="hidden" onChange={(event) => void uploadProductImage(event.target.files?.[0] ?? null)} />
+            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-100/48">Product images</span>
+            <span className="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-full border border-dashed border-white/18 bg-white/[0.055] text-sm font-semibold text-white transition hover:border-violet-200/45 hover:bg-white/10">
+              <Upload size={17} /> {galleryImages.length ? "Add another image" : "Choose product image"}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={galleryImages.length >= maxProductGalleryImages}
+                onChange={(event) => {
+                  void uploadProductImage(event.target.files?.[0] ?? null);
+                  event.currentTarget.value = "";
+                }}
+              />
+            </span>
+            <span className="text-xs font-semibold text-violet-100/44">
+              Upload one image at a time. First image is the product cover. Max {maxProductGalleryImages} images.
             </span>
           </label>
+          {galleryImages.length ? (
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-100/48">
+                  Gallery manager
+                </span>
+                <span className="rounded-full border border-white/10 bg-white/8 px-2.5 py-1 text-xs font-semibold text-violet-100/62">
+                  {galleryImages.length}/{maxProductGalleryImages}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {galleryImages.map((image, index) => (
+                    <div key={`${image}-${index}`} className="group relative overflow-hidden rounded-[18px] border border-white/10 bg-white/8">
+                      <div className="relative aspect-square">
+                        <Image src={image} alt={`Product gallery image ${index + 1}`} fill unoptimized={image.startsWith("data:")} sizes="180px" className="object-cover" />
+                      </div>
+                      <div className="absolute inset-x-2 top-2 flex items-center justify-between gap-2">
+                        <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-1 text-[0.64rem] font-black uppercase tracking-[0.12em]", index === 0 ? "bg-white text-black" : "bg-black/50 text-white backdrop-blur")}>
+                          {index === 0 ? <Star size={11} fill="currentColor" /> : null}
+                          {index === 0 ? "Cover" : `Image ${index + 1}`}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeGalleryImage(index)}
+                          className="grid size-7 place-items-center rounded-full bg-black/55 text-white opacity-90 backdrop-blur transition hover:bg-red-400 hover:text-black"
+                          aria-label={`Remove image ${index + 1}`}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 border-t border-white/10 bg-black/22 p-2">
+                        <button
+                          type="button"
+                          onClick={() => moveGalleryImage(index, -1)}
+                          disabled={index === 0}
+                          className="grid h-8 place-items-center rounded-full border border-white/10 bg-white/8 text-white transition hover:bg-white/14 disabled:cursor-not-allowed disabled:opacity-35"
+                          aria-label={`Move image ${index + 1} left`}
+                        >
+                          <ArrowUp size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => makeCoverImage(index)}
+                          disabled={index === 0}
+                          className="h-8 rounded-full border border-white/10 bg-white/8 px-2 text-[0.66rem] font-bold uppercase tracking-[0.12em] text-white transition hover:bg-white/14 disabled:cursor-not-allowed disabled:opacity-35"
+                        >
+                          Cover
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveGalleryImage(index, 1)}
+                          disabled={index === galleryImages.length - 1}
+                          className="grid h-8 place-items-center rounded-full border border-white/10 bg-white/8 text-white transition hover:bg-white/14 disabled:cursor-not-allowed disabled:opacity-35"
+                          aria-label={`Move image ${index + 1} right`}
+                        >
+                          <ArrowDown size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          ) : null}
           <textarea
             value={form.description}
             onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
             placeholder="Product description"
-            className="min-h-28 border border-slate-200 bg-slate-50 p-3 text-sm font-semibold outline-none focus:border-lime-500"
+            className="min-h-28 rounded-[18px] border border-white/10 bg-white/[0.055] p-3 text-sm font-semibold text-white outline-none transition placeholder:text-violet-100/34 focus:border-violet-200/45 focus:bg-white/10"
           />
           <div className="grid gap-3 sm:grid-cols-2">
             <AdminInput label="Sizes" value={form.sizes} onChange={(value) => setForm((current) => ({ ...current, sizes: value }))} />
@@ -502,11 +1034,11 @@ function ProductsPanel(props: {
             <AdminInput label="Price" value={form.price} onChange={(value) => setForm((current) => ({ ...current, price: value }))} />
             <AdminInput label="Rating" value={form.rating} onChange={(value) => setForm((current) => ({ ...current, rating: value }))} />
           </div>
-          <label className="flex items-center gap-3 text-sm font-bold text-slate-700">
+          <label className="flex items-center gap-3 text-sm font-semibold text-violet-100/70">
             <input type="checkbox" checked={form.featured} onChange={(event) => setForm((current) => ({ ...current, featured: event.target.checked }))} className="size-4 accent-lime-500" />
             Featured product
           </label>
-          <button disabled={isSaving} className="h-12 bg-slate-950 text-sm font-black text-white transition hover:bg-lime-500 hover:text-slate-950 disabled:opacity-50">
+          <button disabled={isSaving} className="h-12 rounded-full bg-white text-sm font-semibold text-black transition hover:bg-violet-100 disabled:opacity-50">
             {isSaving ? "Saving product..." : form.id ? "Update product" : "Add product"}
           </button>
         </form>
@@ -514,39 +1046,39 @@ function ProductsPanel(props: {
       <Panel title="Product catalog" eyebrow="Manage">
         <div className="mb-5 grid gap-3 sm:grid-cols-[1fr_auto]">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products" className="h-12 w-full border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm font-bold outline-none focus:border-lime-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-violet-100/44" size={18} />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products" className="h-12 w-full rounded-full border border-white/10 bg-white/[0.055] pl-10 pr-4 text-sm font-semibold text-white outline-none transition placeholder:text-violet-100/34 focus:border-violet-200/45 focus:bg-white/10" />
           </div>
           <button
             type="button"
             disabled={isSaving}
             onClick={() => void seedStarterProducts()}
-            className="h-12 bg-lime-400 px-4 text-xs font-black uppercase tracking-[0.16em] text-slate-950 transition hover:bg-slate-950 hover:text-white disabled:opacity-50"
+            className="h-12 rounded-full border border-white/14 bg-white/8 px-4 text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:border-violet-200/45 hover:bg-white/14 disabled:opacity-50"
           >
             {isSaving ? "Creating..." : "Seed products"}
           </button>
         </div>
         {!products.length ? (
-          <div className="mb-4 border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800">
+          <div className="mb-4 rounded-[18px] border border-amber-300/30 bg-amber-300/10 p-4 text-sm font-semibold text-amber-100">
             Firestore has no product documents yet. Use Seed products or add a product manually.
           </div>
         ) : null}
         <div className="grid gap-3">
           {products.map((product) => (
-            <article key={product.id} className="grid gap-4 border border-slate-200 bg-slate-50 p-3 sm:grid-cols-[72px_1fr_auto] sm:items-center">
-              <div className="relative aspect-square overflow-hidden bg-white">
-                {product.images[0] ? <Image src={product.images[0]} alt={product.title} fill sizes="72px" className="object-cover" /> : null}
+            <article key={product.id} className="grid gap-4 rounded-[20px] border border-white/10 bg-white/[0.055] p-3 sm:grid-cols-[72px_1fr_auto] sm:items-center">
+              <div className="relative aspect-square overflow-hidden rounded-[14px] bg-white/8">
+                {product.images[0] ? <Image src={product.images[0]} alt={product.title} fill unoptimized={product.images[0].startsWith("data:")} sizes="72px" className="object-cover" /> : null}
               </div>
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{product.brand}</p>
-                <h3 className="mt-1 font-black">{product.title}</h3>
-                <p className="mt-1 text-xs font-bold text-slate-500">{product.category} / ${product.price} / stock {product.stock}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-100/42">{product.brand}</p>
+                <h3 className="mt-1 font-semibold text-white">{product.title}</h3>
+                <p className="mt-1 text-xs font-semibold text-violet-100/48">{product.category} / ${product.price} / stock {product.stock}</p>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => editProduct(product)} className="grid size-10 place-items-center bg-white text-slate-700 transition hover:bg-lime-100" aria-label="Edit product">
+                <button onClick={() => editProduct(product)} className="grid size-10 place-items-center rounded-full border border-white/10 bg-white/8 text-white transition hover:bg-white/14" aria-label="Edit product">
                   <Edit3 size={17} />
                 </button>
-                <button onClick={() => void removeProduct(product.id)} className="grid size-10 place-items-center bg-white text-red-600 transition hover:bg-red-50" aria-label="Delete product">
+                <button onClick={() => void removeProduct(product.id)} className="grid size-10 place-items-center rounded-full border border-red-300/20 bg-red-400/10 text-red-100 transition hover:bg-red-400/16" aria-label="Delete product">
                   <Trash2 size={17} />
                 </button>
               </div>
@@ -563,22 +1095,36 @@ function OrdersPanel({ orders, changeOrderStatus }: { orders: Order[]; changeOrd
     <Panel title="Manage orders" eyebrow="Fulfillment">
       <div className="grid gap-3">
         {orders.map((order) => (
-          <article key={order.id} className="grid gap-4 border border-slate-200 bg-slate-50 p-4 lg:grid-cols-[minmax(0,1fr)_auto_220px] lg:items-center">
-            <div>
-              <p className="text-sm font-black">{order.shippingAddress.name}</p>
-              <p className="mt-1 text-xs font-semibold text-slate-500">{order.id} / {order.items.length} items / ${order.total}</p>
-              <p className="mt-1 text-xs font-semibold text-slate-500">{order.shippingAddress.email}</p>
+          <article key={order.id} className="grid gap-4 rounded-[24px] border border-white/12 bg-[linear-gradient(135deg,rgba(255,255,255,0.075),rgba(255,255,255,0.035))] p-4 shadow-xl shadow-black/18 backdrop-blur-xl lg:grid-cols-[minmax(0,1fr)_auto_240px] lg:items-center">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-base font-semibold tracking-[-0.02em] text-white">{order.shippingAddress.name}</p>
+                <span className="rounded-full border border-white/10 bg-white/8 px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-violet-100/70">
+                  {order.items.length} {order.items.length === 1 ? "item" : "items"}
+                </span>
+              </div>
+              <p className="mt-2 max-w-full truncate font-mono text-xs font-semibold text-violet-100/62">
+                {order.orderNumber ?? order.id}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs font-semibold text-violet-100/54">
+                <span className="truncate">{order.shippingAddress.email}</span>
+                <span>${order.total}</span>
+                <span>{order.paymentMethod ?? "cash_on_delivery"}</span>
+                <span>{order.paymentStatus ?? "unpaid"}</span>
+              </div>
             </div>
             <span className={cn("w-fit px-3 py-2 text-xs font-black uppercase tracking-[0.14em]", getOrderStatusClassName(order.status))}>
               {getOrderStatusLabel(order.status)}
             </span>
-            <CustomSelect
-              label="Update status"
-              value={orderFulfillmentStatuses.includes(order.status) ? order.status : ""}
-              placeholder="Choose next step"
-              options={orderStatusOptions}
-              onChange={(value) => changeOrderStatus(order.id, value as OrderStatus)}
-            />
+            <div className="min-w-0">
+              <CustomSelect
+                label="Update status"
+                value={orderFulfillmentStatuses.includes(order.status) ? order.status : ""}
+                placeholder="Choose next step"
+                options={orderStatusOptions}
+                onChange={(value) => changeOrderStatus(order.id, value as OrderStatus)}
+              />
+            </div>
           </article>
         ))}
       </div>
@@ -591,10 +1137,12 @@ function UsersPanel({ users, changeUserRole }: { users: UserProfile[]; changeUse
     <Panel title="Manage users" eyebrow="Access">
       <div className="grid gap-3">
         {users.map((user) => (
-          <article key={user.uid} className="grid gap-4 border border-slate-200 bg-slate-50 p-4 lg:grid-cols-[1fr_auto] lg:items-center">
+          <article key={user.uid} className="grid gap-4 rounded-[20px] border border-white/10 bg-white/[0.055] p-4 lg:grid-cols-[1fr_auto] lg:items-center">
             <div className="min-w-0">
-              <p className="font-black">{user.name}</p>
-              <p className="mt-1 truncate text-xs font-semibold text-slate-500">{user.email}</p>
+              <p className="font-semibold text-white">{user.name}</p>
+              <p className="mt-1 truncate text-xs font-semibold text-violet-100/48">
+                {user.email} / {user.provider ?? "password"} / {user.loginCount ?? 0} logins
+              </p>
             </div>
             <CustomSelect
               className="min-w-[180px]"
@@ -617,18 +1165,18 @@ function InventoryPanel({ products }: { products: Product[] }) {
           .slice()
           .sort((a, b) => a.stock - b.stock)
           .map((product) => (
-            <article key={product.id} className="grid gap-3 border border-slate-200 bg-slate-50 p-4 sm:grid-cols-[1fr_180px] sm:items-center">
+            <article key={product.id} className="grid gap-3 rounded-[20px] border border-white/10 bg-white/[0.055] p-4 sm:grid-cols-[1fr_180px] sm:items-center">
               <div>
-                <p className="font-black">{product.title}</p>
-                <p className="mt-1 text-xs font-semibold text-slate-500">{product.brand} / {product.category}</p>
+                <p className="font-semibold text-white">{product.title}</p>
+                <p className="mt-1 text-xs font-semibold text-violet-100/48">{product.brand} / {product.category}</p>
               </div>
               <div>
-                <div className="flex items-center justify-between text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.14em] text-violet-100/48">
                   <span>Stock</span>
-                  <span className={product.stock <= 5 ? "text-red-600" : "text-slate-950"}>{product.stock}</span>
+                  <span className={product.stock <= 5 ? "text-red-200" : "text-white"}>{product.stock}</span>
                 </div>
-                <div className="mt-2 h-2 bg-slate-200">
-                  <div className={cn("h-full", product.stock <= 5 ? "bg-red-500" : "bg-lime-500")} style={{ width: `${Math.min(100, product.stock * 4)}%` }} />
+                <div className="mt-2 h-2 rounded-full bg-white/10">
+                  <div className={cn("h-full rounded-full", product.stock <= 5 ? "bg-red-300" : "bg-violet-200")} style={{ width: `${Math.min(100, product.stock * 4)}%` }} />
                 </div>
               </div>
             </article>
@@ -640,13 +1188,13 @@ function InventoryPanel({ products }: { products: Product[] }) {
 
 function Panel({ title, eyebrow, children }: { title: string; eyebrow: string; children: ReactNode }) {
   return (
-    <section className="border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/60">
+    <section className="rounded-[28px] border border-white/10 bg-white/[0.055] p-5 shadow-2xl shadow-black/25 backdrop-blur-xl">
       <div className="mb-5 flex items-center justify-between gap-4">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">{eyebrow}</p>
-          <h2 className="mt-1 text-2xl font-black">{title}</h2>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-100/48">{eyebrow}</p>
+          <h2 className="mt-1 text-2xl font-normal tracking-[-0.04em] text-white">{title}</h2>
         </div>
-        <PackagePlus className="text-lime-600" size={24} />
+        <PackagePlus className="text-violet-100/72" size={24} />
       </div>
       {children}
     </section>
@@ -655,9 +1203,9 @@ function Panel({ title, eyebrow, children }: { title: string; eyebrow: string; c
 
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-slate-50 p-4">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{label}</p>
-      <p className="mt-3 text-2xl font-black">{value}</p>
+    <div className="rounded-[18px] border border-white/10 bg-white/[0.055] p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-100/46">{label}</p>
+      <p className="mt-3 text-2xl font-normal tracking-[-0.04em] text-white">{value}</p>
     </div>
   );
 }
@@ -665,10 +1213,74 @@ function MiniStat({ label, value }: { label: string; value: string }) {
 function AdminInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
     <label className="grid gap-2">
-      <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">{label}</span>
-      <input value={value} onChange={(event) => onChange(event.target.value)} className="h-11 border border-slate-200 bg-slate-50 px-3 text-sm font-bold outline-none focus:border-lime-500" />
+      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-100/48">{label}</span>
+      <input value={value} onChange={(event) => onChange(event.target.value)} className="h-11 rounded-full border border-white/10 bg-white/[0.055] px-3 text-sm font-semibold text-white outline-none transition placeholder:text-violet-100/34 focus:border-violet-200/45 focus:bg-white/10" />
     </label>
   );
+}
+
+function parseProductImageUrls(imageUrls: string) {
+  return imageUrls
+    .split(/\r?\n/)
+    .map((image) => image.trim())
+    .filter(Boolean);
+}
+
+function serializeProductImageUrls(images: string[]) {
+  return images
+    .map((image) => image.trim())
+    .filter(Boolean)
+    .slice(0, maxProductGalleryImages)
+    .join("\n");
+}
+
+function compressImageForFirestore(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new window.Image();
+
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+
+      const maxSide = 980;
+      const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+
+      const context = canvas.getContext("2d");
+
+      if (!context) {
+        reject(new Error("Image compression failed. Please try a different image."));
+        return;
+      }
+
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+      let quality = 0.78;
+      let dataUrl = canvas.toDataURL("image/webp", quality);
+      const maxFirestoreImageLength = 450_000;
+
+      while (dataUrl.length > maxFirestoreImageLength && quality > 0.34) {
+        quality -= 0.08;
+        dataUrl = canvas.toDataURL("image/webp", quality);
+      }
+
+      if (dataUrl.length > maxFirestoreImageLength) {
+        reject(new Error("Image is still too large after compression. Please upload a smaller image."));
+        return;
+      }
+
+      resolve(dataUrl);
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Image could not be read. Please try another image."));
+    };
+
+    image.src = objectUrl;
+  });
 }
 
 function withTimeout<T>(promise: Promise<T>, message: string, ms = 15000): Promise<T> {
@@ -696,11 +1308,35 @@ function getAdminErrorMessage(error: unknown) {
     return 'Firebase blocked this admin action. Confirm the signed-in user document exists in users/{uid} with role: "admin", then deploy Firestore and Storage rules.';
   }
 
+  if (lowerMessage.includes("storage/unauthorized")) {
+    return 'Firebase Storage blocked this upload. Confirm your user document has role: "admin", then deploy Storage rules with firebase deploy --only storage.';
+  }
+
+  if (lowerMessage.includes("storage/canceled")) {
+    return "Image upload was cancelled. Please try again.";
+  }
+
+  if (lowerMessage.includes("storage/retry-limit-exceeded") || lowerMessage.includes("network")) {
+    return "Image upload could not finish because the connection was unstable. Try a smaller image or retry on a stronger connection.";
+  }
+
   if (lowerMessage.includes("firestore is not configured")) {
     return "Firestore is not configured. Check your Firebase environment variables and restart the dev server.";
   }
 
+  if (lowerMessage.includes("storage is not configured")) {
+    return "Firebase Storage is not configured. Check your Firebase environment variables and restart the dev server.";
+  }
+
   return message || "Admin action failed. Check Firebase configuration and try again.";
+}
+
+function clearProductCache() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.removeItem("rvsn-firestore-products-v1");
 }
 
 function getOrderStatusLabel(status: OrderStatus) {
@@ -719,20 +1355,20 @@ function getOrderStatusLabel(status: OrderStatus) {
 
 function getOrderStatusClassName(status: OrderStatus) {
   if (status === "cancelled") {
-    return "bg-red-50 text-red-700";
+    return "rounded-full border border-red-300/30 bg-red-400/10 text-red-100";
   }
 
   if (status === "delivered") {
-    return "bg-lime-100 text-lime-800";
+    return "rounded-full border border-emerald-300/30 bg-emerald-300/10 text-emerald-100";
   }
 
   if (status === "shipped") {
-    return "bg-sky-50 text-sky-700";
+    return "rounded-full border border-sky-300/30 bg-sky-300/10 text-sky-100";
   }
 
   if (status === "approved" || status === "paid" || status === "processing") {
-    return "bg-amber-50 text-amber-700";
+    return "rounded-full border border-amber-300/30 bg-amber-300/10 text-amber-100";
   }
 
-  return "bg-white text-slate-600";
+  return "rounded-full border border-white/10 bg-white/8 text-violet-100/72";
 }

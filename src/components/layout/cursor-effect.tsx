@@ -49,7 +49,7 @@ export function CursorEffect() {
   return (
     <motion.div
       aria-hidden="true"
-      className="pointer-events-none fixed left-0 top-0 z-[90] hidden size-44 rounded-full border border-white/35 bg-[radial-gradient(circle,rgba(255,255,255,0.72),rgba(215,255,47,0.28)_28%,rgba(56,189,248,0.18)_52%,transparent_74%)] mix-blend-screen shadow-[0_0_48px_rgba(255,255,255,0.32)] backdrop-blur-[1px] lg:block"
+      className="pointer-events-none fixed left-0 top-0 z-[90] hidden size-28 rounded-full border border-white/18 bg-[radial-gradient(circle,rgba(255,255,255,0.46),rgba(168,85,247,0.22)_34%,rgba(59,130,246,0.12)_58%,transparent_76%)] mix-blend-screen shadow-[0_0_34px_rgba(168,85,247,0.24)] backdrop-blur-[1px] lg:block"
       style={{ x: springX, y: springY }}
       animate={{
         opacity: isInsidePage && !isInteractiveHover ? 1 : 0,

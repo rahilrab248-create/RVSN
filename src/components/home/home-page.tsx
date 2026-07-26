@@ -1,380 +1,733 @@
 "use client";
 
-import { ArrowRight, Mail, Play, Sparkles } from "lucide-react";
-import { motion, useScroll, useTransform, type Variants } from "framer-motion";
+import { ArrowRight, Footprints, Mail, PackageCheck, Shirt, Trophy } from "lucide-react";
+import { motion, useInView, useMotionTemplate, useScroll, useTransform, type MotionValue, type Variants } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import {
-  featuredBoots,
-  heroSignals,
-  newArrivals,
-  popularClubs,
-  trendingJerseys,
-} from "@/config/home";
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { ClubMarquee } from "@/components/home/club-marquee";
 import { ProductShowcaseCard } from "@/components/home/product-showcase-card";
-import { SectionTitle } from "@/components/home/section-title";
-import { cn } from "@/lib/utils";
+import { popularClubs, trendingJerseys, type ShowcaseItem } from "@/config/home";
 
-const heroWords = ["Shop", "football", "gear", "built", "for", "matchday."];
-const heroLayout: "fullscreen-video" | "card-video" = "fullscreen-video";
-const heroVideoSrc = "/videos/hero/football-hero-720p.mp4";
-
-const heroIntro: Variants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.08,
-      delayChildren: 0.12,
-    },
+const ease = [0.16, 1, 0.3, 1] as const;
+const approachVideoSrc = "/videos/hero/football-hero-720p.mp4";
+const approachStatement = "We combine football taste, product clarity and cinematic motion to create a store that feels built for the tunnel.";
+const mobileHeroSlideDuration = 7800;
+const mobileHeroSlides = [
+  {
+    title: "Blackout training",
+    image: "/images/hero/mobile-hero-training-kit.png",
   },
-};
+  {
+    title: "Jersey wall",
+    image: "/images/hero/mobile-hero-jersey-wall.png",
+  },
+  {
+    title: "Speed boots",
+    image: "/images/hero/mobile-hero-speed-boots.png",
+  },
+];
 
-const heroReveal: Variants = {
-  hidden: { opacity: 0, y: 28, filter: "blur(10px)" },
+const reveal: Variants = {
+  hidden: { opacity: 0, y: 70, scale: 0.975 },
   show: {
     opacity: 1,
     y: 0,
-    filter: "blur(0px)",
-    transition: { duration: 0.68, ease: "easeOut" },
+    scale: 1,
+    transition: { duration: 1.05, ease },
   },
 };
 
+const lineReveal: Variants = {
+  hidden: { opacity: 0, y: "120%", rotateX: 18 },
+  show: (index: number) => ({
+    opacity: 1,
+    y: "0%",
+    rotateX: 0,
+    transition: { duration: 1.05, delay: 0.18 + index * 0.1, ease },
+  }),
+};
+
+const serviceTiles = [
+  {
+    title: "Jersey Strategy",
+    count: "/6 drops",
+    href: "/category/jerseys",
+    image: "/images/products/heritage-gold-jersey.webp",
+    icon: Shirt,
+    tags: ["Club editions", "Elite fit", "Limited kits", "Street layers", "Heritage colorways"],
+  },
+  {
+    title: "Boot Identity",
+    count: "/34 boots",
+    href: "/category/astro-turf-football-boots",
+    image: "/images/products/nike-phantom-6-low-pro-hj4123-446-1.jpg",
+    icon: Footprints,
+    tags: ["Speed plates", "Touch zones", "Firm ground", "Power strikes", "Control builds"],
+  },
+  {
+    title: "Matchday Design",
+    count: "/6 edits",
+    href: "/products",
+    image: "/images/hero/hero-football-store.png",
+    icon: Trophy,
+    tags: ["Drop curation", "Club energy", "Tunnel looks", "Game-ready layers", "Premium capsules"],
+  },
+  {
+    title: "Training Content",
+    count: "/3 packs",
+    href: "/category/training",
+    image: "/images/products/rain-ready-training-layer.webp",
+    icon: PackageCheck,
+    tags: ["Rain shells", "Grip gloves", "Recovery fits", "Cold sessions", "Travel gear"],
+  },
+];
+
+const projects = [
+  {
+    title: "Volt Strike Pack",
+    href: "/products",
+    image: "/images/hero/hero-football-store.png",
+    description:
+      "A high-energy launch capsule shaped around electric kit color, precision boots, and the visual pressure of a night match.",
+    details: [
+      ["Location", "Global"],
+      ["Industry", "Football retail"],
+      ["Services", "Kits, boots, drops"],
+    ],
+  },
+  {
+    title: "Nike Phantom 6 Low Pro",
+    href: "/products/nike-phantom-6-low-pro-hj4123-446",
+    image: "/images/products/nike-phantom-6-low-pro-hj4123-446-1.jpg",
+    description:
+      "A darker boot story for players who build the match through touch, control, and quick changes on astro turf.",
+    details: [
+      ["Category", "Boot room"],
+      ["Fit", "Control"],
+      ["Surface", "Firm ground"],
+    ],
+  },
+  {
+    title: "Night Derby Jersey",
+    href: "/products/night-derby-jersey",
+    image: "/images/products/night-derby-jersey.avif",
+    description:
+      "An away-day jersey system with sharp contrast, club attitude, and enough polish to move from pitch to street.",
+    details: [
+      ["Category", "Jerseys"],
+      ["Drop", "Derby night"],
+      ["Mood", "Editorial"],
+    ],
+  },
+];
+
+const testimonials = [
+  {
+    quote:
+      "The store feels like a football campaign now. Every section has movement, but the products are still easy to understand.",
+    name: "Academy Player",
+    role: "Boot rotation",
+  },
+  {
+    quote:
+      "The kit cards and club motion make browsing feel premium. It has the confidence of a launch page, not a basic catalog.",
+    name: "Matchday Buyer",
+    role: "Club supporter",
+  },
+  {
+    quote:
+      "The new rhythm gives the brand a real point of view while keeping checkout and product discovery clear.",
+    name: "Store Admin",
+    role: "Operations",
+  },
+  {
+    quote:
+      "The darker purple grading and large rounded sections give the whole store a more expensive football identity.",
+    name: "Creative Lead",
+    role: "Visual direction",
+  },
+];
+
+const insights = [
+  {
+    title: "How to Build a Matchday Rotation",
+    date: "Kit guide",
+    href: "/category/jerseys",
+    image: "/images/products/mexico_heritage_jersey.webp",
+  },
+  {
+    title: "Speed, Control, Power: Choosing the Right Boot",
+    date: "Boot room",
+    href: "/category/mens-football-boots",
+    image: "/images/products/nike-phantom-6-low-pro-erling-haaland-ih1788-603-1.jpg",
+  },
+];
+
 export function HomePage() {
-  const { scrollY } = useScroll();
-  const heroY = useTransform(scrollY, [0, 700], [0, 160]);
-  const heroOpacity = useTransform(scrollY, [0, 560], [1, 0.18]);
-  const isFullscreenHero = heroLayout === "fullscreen-video";
+  const approachRef = useRef<HTMLElement | null>(null);
+  const approachVideoRef = useRef<HTMLVideoElement | null>(null);
+  const approachVideoShellRef = useRef<HTMLDivElement | null>(null);
+  const isApproachVideoInView = useInView(approachVideoShellRef, { amount: 0.35 });
+  const { scrollYProgress } = useScroll({ target: approachRef, offset: ["start end", "end start"] });
+  const collageScale = useTransform(scrollYProgress, [0.12, 0.34, 0.58], [0.82, 0.94, 1]);
+  const collageOpacity = useTransform(scrollYProgress, [0, 0.12, 0.82], [0.5, 1, 1]);
+  const collageHeight = useTransform(scrollYProgress, [0.18, 0.58], ["54vh", "100vh"]);
+  const collageWidth = useTransform(scrollYProgress, [0.18, 0.58], ["90vw", "100vw"]);
+  const collageRadius = useTransform(scrollYProgress, [0.2, 0.58], ["12px", "0px"]);
+  const approachBackgroundChannel = useTransform(scrollYProgress, [0.36, 0.66], [14, 2]);
+  const approachVioletAlpha = useTransform(scrollYProgress, [0.12, 0.48, 0.82], [0.3, 0.44, 0.2]);
+  const approachBlueAlpha = useTransform(scrollYProgress, [0.18, 0.54, 0.82], [0.14, 0.24, 0.11]);
+  const approachTextChannel = useTransform(scrollYProgress, [0.44, 0.62], [255, 255]);
+  const approachPlainTextColor = useMotionTemplate`rgb(${approachTextChannel}, ${approachTextChannel}, ${approachTextChannel})`;
+  const approachBackground = useMotionTemplate`
+    radial-gradient(circle at 50% 58%, rgba(124, 58, 237, ${approachVioletAlpha}), transparent 44rem),
+    radial-gradient(circle at 16% 44%, rgba(59, 130, 246, ${approachBlueAlpha}), transparent 34rem),
+    radial-gradient(circle at 84% 78%, rgba(168, 85, 247, 0.12), transparent 30rem),
+    linear-gradient(180deg, #080413 0%, rgb(${approachBackgroundChannel}, ${approachBackgroundChannel}, ${approachBackgroundChannel}) 54%, #020106 100%)
+  `;
+
+  useEffect(() => {
+    const video = approachVideoRef.current;
+
+    if (!video) {
+      return;
+    }
+
+    if (isApproachVideoInView) {
+      void video.play().catch(() => undefined);
+    } else {
+      video.pause();
+    }
+  }, [isApproachVideoInView]);
 
   return (
-    <>
-      <section className={cn("relative isolate min-h-screen overflow-hidden border-b border-slate-200 pt-20", isFullscreenHero && "bg-slate-950")}>
-        <motion.div style={{ y: heroY, opacity: heroOpacity }} className="absolute inset-0 -z-10">
-          {isFullscreenHero ? (
-            <>
-              <video
-                className="absolute inset-0 h-full w-full object-cover"
-                autoPlay
-                muted
-                loop
-                playsInline
-                poster="/images/hero/hero-football-store.png"
-                aria-label="Cinematic football ecommerce hero video"
-              >
-                <source src={heroVideoSrc} type="video/mp4" />
-              </video>
-              <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,6,23,0.9)_0%,rgba(2,6,23,0.62)_38%,rgba(2,6,23,0.28)_72%,rgba(2,6,23,0.72)_100%)]" />
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_24%,rgba(215,255,47,0.24),transparent_28%),linear-gradient(180deg,rgba(2,6,23,0.12)_0%,rgba(2,6,23,0.92)_100%)]" />
-              <div className="stadium-lights absolute inset-0 opacity-45" />
-            </>
-          ) : (
-            <>
-              <div className="cinematic-hero absolute inset-0" />
-              <div className="stadium-lights absolute inset-0" />
-              <div className="animated-pitch absolute inset-x-0 bottom-0 h-[55vh]" />
-              <motion.div
-                className="football-orbit absolute left-[58%] top-[18%] hidden size-44 sm:block"
-                animate={{ y: [0, -22, 0], rotate: [0, 12, 0] }}
-                transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
-              >
-                <div className="football-core" />
-              </motion.div>
-              <motion.div
-                className="absolute left-[8%] top-[22%] h-28 w-28 border border-lime-300/20 bg-lime-300/5 blur-[1px]"
-                animate={{ y: [0, 18, 0], rotate: [0, -8, 0] }}
-                transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-              />
-              <motion.div
-                className="absolute bottom-[18%] right-[12%] h-20 w-20 border border-cyan-300/20 bg-cyan-300/5"
-                animate={{ y: [0, -16, 0], rotate: [0, 10, 0] }}
-                transition={{ duration: 5.2, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
-              />
-            </>
-          )}
+    <main className="aww-page text-white">
+      <section id="hero" className="aww-hero">
+        <div className="aww-hero-bg" aria-hidden="true" />
+        <MobileHeroCarousel />
+        <motion.div
+          className="aww-hero-mark"
+          initial={{ opacity: 0, scale: 0.86, rotateX: 18 }}
+          animate={{ opacity: 1, scale: 1, rotateX: 0 }}
+          transition={{ duration: 1.3, ease, delay: 0.25 }}
+        >
+          <Image
+            src="/images/hero/rvsn-kit-hero.png"
+            alt="RVSN black and purple football kit with boots and ball"
+            fill
+            priority
+            sizes="(min-width: 1024px) 48vw, 0px"
+            className="object-contain"
+          />
+          <span className="aww-hero-glitch-layer" aria-hidden="true" />
         </motion.div>
 
-        <div
-          className={cn(
-            "container-shell grid min-h-[calc(100vh-5rem)] items-center gap-12 py-16",
-            isFullscreenHero ? "lg:grid-cols-[minmax(0,0.9fr)_minmax(260px,0.45fr)]" : "lg:grid-cols-[1fr_0.9fr]",
-          )}
-        >
-          <motion.div
-            variants={heroIntro}
-            initial="hidden"
-            animate="show"
-            className={cn("max-w-4xl", isFullscreenHero && "pt-12 sm:pt-0")}
-          >
-            <motion.p
-              variants={heroReveal}
-              className={cn(
-                "inline-flex items-center gap-2 border border-lime-300 px-3 py-1 text-xs font-bold uppercase tracking-[0.22em]",
-                isFullscreenHero ? "bg-lime-300 text-slate-950 shadow-lg shadow-lime-950/30" : "bg-lime-200/70 text-slate-950",
-              )}
-            >
-              <Sparkles size={14} />
-              New season energy
-            </motion.p>
-            <motion.h1
-              variants={heroIntro}
-              className={cn(
-                "mt-5 flex max-w-[9ch] flex-wrap gap-x-3 gap-y-1 text-[3.85rem] font-black leading-[0.9] min-[390px]:text-[4.15rem] sm:mt-6 sm:max-w-none sm:gap-x-4 sm:text-balance sm:text-7xl sm:leading-[0.9] lg:text-8xl",
-                isFullscreenHero
-                  ? "max-w-[11ch] text-white [text-shadow:0_12px_42px_rgba(0,0,0,0.72)]"
-                  : "text-slate-950 [text-shadow:0_8px_28px_rgba(15,23,42,0.18)]",
-              )}
-            >
-              {heroWords.map((word) => (
-                <span key={word} className="overflow-hidden pb-1">
-                  <motion.span variants={heroReveal} className="inline-block">
-                    {word}
+        <div className="aww-hero-copy">
+          <motion.p custom={0} variants={lineReveal} initial="hidden" animate="show" className="aww-eyebrow overflow-hidden">
+            RVSN football studio
+          </motion.p>
+          <h1 className="aww-hero-title">
+            {["RVSN is a premium", "football store in motion.", "We shape kits, boots and club drops", "with cinematic precision."].map(
+              (line, index) => (
+                <span key={line} className={index > 1 ? "text-white/38" : undefined}>
+                  <motion.span custom={index + 1} variants={lineReveal} initial="hidden" animate="show" className="block">
+                    {line}
                   </motion.span>
                 </span>
-              ))}
-            </motion.h1>
-            <motion.p
-              variants={heroReveal}
-              className={cn(
-                "mt-5 max-w-2xl text-pretty text-base font-semibold leading-7 sm:mt-6 sm:text-lg sm:leading-8",
-                isFullscreenHero ? "text-slate-100 [text-shadow:0_3px_20px_rgba(0,0,0,0.7)]" : "text-slate-600",
-              )}
-            >
-              Browse elite jerseys, precision boots, training essentials, club capsules, and new arrivals in a lighter
-              premium ecommerce experience.
-            </motion.p>
-            <motion.div variants={heroReveal} className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <motion.a
-                href="/products"
-                whileHover={{ y: -3, scale: 1.01 }}
-                whileTap={{ scale: 0.98 }}
-                className="inline-flex h-12 items-center justify-center gap-2 bg-lime-300 px-6 text-sm font-extrabold !text-slate-950 shadow-xl shadow-lime-950/25 transition hover:bg-white"
-              >
-                Explore drops
-                <ArrowRight size={18} />
-              </motion.a>
-              <motion.a
-                href="/category/boots"
-                whileHover={{ y: -3, scale: 1.01 }}
-                whileTap={{ scale: 0.98 }}
-                className={cn(
-                  "inline-flex h-12 items-center justify-center gap-2 border px-6 text-sm font-semibold transition",
-                  isFullscreenHero
-                    ? "border-white/45 bg-white/18 !text-white shadow-xl shadow-slate-950/20 backdrop-blur hover:border-lime-300 hover:bg-lime-300 hover:!text-slate-950"
-                    : "border-slate-300 bg-white text-slate-950 hover:border-slate-950",
-                )}
-              >
-                <Play size={17} />
-                Shop boots
-              </motion.a>
-            </motion.div>
-          </motion.div>
-
-          {isFullscreenHero ? (
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, ease: "easeOut", delay: 0.35 }}
-              className="hidden self-end justify-self-end border border-white/20 bg-slate-950/52 p-5 text-white shadow-2xl shadow-slate-950/40 backdrop-blur-xl lg:block"
-            >
-              <p className="inline-flex bg-lime-300 px-3 py-1 font-mono text-[10px] font-black uppercase tracking-[0.22em] text-slate-950">
-                Featured drop
-              </p>
-              <h2 className="mt-4 text-3xl font-black leading-none">Volt Strike Pack</h2>
-              <p className="mt-3 max-w-xs text-sm font-semibold leading-6 text-slate-100">
-                Electric kit energy for players who light up the pitch.
-              </p>
-              <Link href="/products" className="mt-5 inline-flex h-11 items-center justify-center gap-2 bg-lime-300 px-4 text-sm font-black !text-slate-950 shadow-lg shadow-lime-950/20 transition hover:bg-white">
-                View products
-                <ArrowRight size={17} />
-              </Link>
-            </motion.div>
-          ) : (
-            <motion.div
-            initial={{ opacity: 0, scale: 0.94, y: 28 }}
-            animate={{ opacity: 1, scale: 1, y: [0, -14, 0] }}
-            transition={{
-              opacity: { duration: 0.75, ease: "easeOut", delay: 0.15 },
-              scale: { duration: 0.75, ease: "easeOut", delay: 0.15 },
-              y: { duration: 5.6, repeat: Infinity, ease: "easeInOut", delay: 0.15 },
-            }}
-            className="group relative mx-auto w-full max-w-[520px] overflow-hidden rounded-lg border border-slate-200 bg-white p-3 shadow-2xl shadow-slate-200 transition hover:border-lime-300 sm:p-4"
-          >
-            <Link href="/products" aria-label="Open products page" className="block">
-              <div className="relative min-h-[460px] overflow-hidden rounded-sm border border-slate-100 bg-slate-100 sm:aspect-[4/5] sm:min-h-0">
-                {heroVideoSrc ? (
-                  <video
-                    className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105"
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    poster="/images/hero/hero-football-store.png"
-                    aria-label="Football ecommerce hero video"
-                  >
-                    <source src={heroVideoSrc} type="video/mp4" />
-                  </video>
-                ) : (
-                  <Image
-                    src="/images/hero/hero-football-store.png"
-                    alt="Football ecommerce hero collection"
-                    fill
-                    priority
-                    sizes="(min-width: 1024px) 520px, 100vw"
-                    className="hero-media-motion object-cover transition duration-700 group-hover:scale-105"
-                  />
-                )}
-                <div className="pointer-events-none absolute inset-0 translate-x-[-135%] skew-x-[-18deg] bg-[linear-gradient(105deg,transparent_0%,rgba(255,255,255,0.08)_34%,rgba(255,255,255,0.78)_48%,rgba(215,255,47,0.28)_58%,transparent_72%)] opacity-0 transition duration-700 ease-out group-hover:translate-x-[135%] group-hover:opacity-100" />
-                <div className="pointer-events-none absolute inset-0 opacity-0 transition duration-500 group-hover:opacity-100 bg-[radial-gradient(circle_at_50%_18%,rgba(255,255,255,0.24),transparent_42%)]" />
-                <div className="absolute inset-x-0 bottom-0 h-52 bg-gradient-to-t from-black via-black/72 to-transparent" />
-                <div className="absolute bottom-5 left-4 right-4 rounded-sm bg-black/18 p-1 backdrop-blur-[1px] sm:left-5 sm:right-5">
-                  <p className="inline-flex bg-lime-300 px-3 py-1 font-mono text-[10px] font-black uppercase tracking-[0.22em] text-slate-950 shadow-lg shadow-slate-950/20 sm:text-xs">
-                    Featured drop
-                  </p>
-                  <h2 className="mt-3 text-3xl font-black leading-none !text-white drop-shadow-[0_4px_16px_rgba(0,0,0,0.95)] sm:text-4xl">
-                    Volt Strike Pack
-                  </h2>
-                  <p className="mt-2 max-w-xs text-sm font-semibold leading-5 !text-lime-100 drop-shadow-[0_3px_12px_rgba(0,0,0,0.9)] sm:text-base">
-                    Electric kit energy for players who light up the pitch.
-                  </p>
-                </div>
-              </div>
-            </Link>
-            <div className="mt-4 grid grid-cols-3 gap-2">
-              {heroSignals.map((signal) => (
-                <div key={signal.label} className="border border-slate-200 bg-slate-50 p-3">
-                  <signal.icon className="text-slate-950" size={18} />
-                  <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">{signal.label}</p>
-                  <p className="mt-1 text-sm font-black text-slate-950">{signal.value}</p>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-          )}
+              ),
+            )}
+          </h1>
         </div>
-        {isFullscreenHero ? (
-          <div className="pointer-events-none absolute inset-x-0 bottom-5 hidden justify-center sm:flex">
-            <span className="font-mono text-[10px] font-black uppercase tracking-[0.28em] text-white/70">Scroll for club drops</span>
-          </div>
-        ) : null}
+
+        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, delay: 1.05, ease }}>
+          <Link href="/products" className="aww-cta aww-hero-cta">
+            Shop the drop <span />
+          </Link>
+        </motion.div>
+        <a className="aww-scroll-cue" href="#services">
+          Scroll
+        </a>
       </section>
 
-      <section id="clubs" className="container-shell py-14 sm:py-16">
-        <SectionTitle
-          eyebrow="Popular clubs"
-          title="Club shops in motion."
-          description="The infinite club animation now sits directly below the hero, with premium badge-style team marks."
-        />
+      <section id="services" className="aww-light-section">
+        <motion.p variants={reveal} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-8%" }} className="aww-section-eyebrow">
+          Our services
+        </motion.p>
+        <div className="aww-service-grid">
+          {serviceTiles.map((tile, index) => (
+            <ServiceCard key={tile.title} tile={tile} index={index} />
+          ))}
+        </div>
+      </section>
+
+      <motion.section ref={approachRef} id="about" className="aww-approach" style={{ background: approachBackground, color: approachPlainTextColor }}>
+        <motion.div className="aww-approach-copy" variants={reveal} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-10%" }}>
+          <p className="aww-section-eyebrow">Our approach and values</p>
+          <ScrollRevealStatement text={approachStatement} progress={scrollYProgress} />
+        </motion.div>
+        <motion.div
+          ref={approachVideoShellRef}
+          style={{ scale: collageScale, opacity: collageOpacity, height: collageHeight, width: collageWidth, borderRadius: collageRadius }}
+          className="aww-collage"
+        >
+          <video
+            ref={approachVideoRef}
+            className="aww-collage-video"
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            poster="/images/hero/hero-football-store.png"
+            aria-label="Cinematic football product campaign video"
+          >
+            <source src={approachVideoSrc} type="video/mp4" />
+          </video>
+        </motion.div>
+      </motion.section>
+
+      <section id="portfolio" className="aww-dark-section aww-approach-continuation">
+        <motion.p custom={0} variants={lineReveal} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-12%" }} className="aww-section-eyebrow aww-work-label overflow-hidden">
+          Latest work
+        </motion.p>
+        <div className="aww-project-list">
+          {projects.map((project, index) => (
+            <ProjectCard key={project.title} project={project} index={index} />
+          ))}
+        </div>
+        <Link href="/products" className="aww-cta mx-auto mt-10">
+          View all products <span />
+        </Link>
+      </section>
+
+      <section id="clubs" className="aww-dark-section !pt-0">
+        <motion.div variants={reveal} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-8%" }} className="mb-8">
+          <p className="aww-section-eyebrow">Popular clubs</p>
+          <h2 className="aww-section-title">Club shops in constant motion.</h2>
+        </motion.div>
         <ClubMarquee clubs={popularClubs} />
       </section>
 
-      <ShowcaseSection
-        id="trending"
-        eyebrow="Trending jerseys"
-        title="Kits that own the tunnel."
-        description="Bold club-inspired designs with speed, heritage, and street-ready energy."
-        items={trendingJerseys}
-      />
-
-      <ShowcaseSection
-        id="featured-boots"
-        eyebrow="Featured boots"
-        title="Built for first touch and final strike."
-        description="A fast-moving boot wall with precision, grip, and explosive visual energy."
-        items={featuredBoots}
-        alternate
-      />
-
-      <section id="arrivals" className="border-y border-slate-200 bg-white py-20 sm:py-24">
-        <div className="container-shell grid gap-10 lg:grid-cols-[0.75fr_1.25fr]">
-          <SectionTitle
-            eyebrow="New arrivals"
-            title="Fresh from the training ground."
-            description="Fresh layers, gloves, and matchday extras ready for cold sessions, wet pitches, and late winners."
-          />
-          <div className="grid gap-3 sm:grid-cols-2">
-            {newArrivals.map((arrival, index) => (
-              <motion.article
-                key={arrival.title}
-                initial={{ opacity: 0, y: 22 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-100px" }}
-                transition={{ duration: 0.5, ease: "easeOut", delay: index * 0.06 }}
-                className="rounded-lg border border-slate-200 bg-slate-50 p-5 shadow-sm"
-              >
-                <Link href={arrival.href} className="block">
-                <arrival.icon className="text-slate-950" size={26} />
-                <p className="mt-8 text-xs font-bold uppercase tracking-[0.2em] text-slate-500">{arrival.category}</p>
-                <h3 className="mt-2 text-xl font-black text-slate-950">{arrival.title}</h3>
-                </Link>
-              </motion.article>
-            ))}
-          </div>
-        </div>
+      <section id="trending" className="aww-light-section">
+        <motion.div variants={reveal} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-8%" }} className="mb-8">
+          <p className="aww-section-eyebrow">Trending jerseys</p>
+          <h2 className="aww-section-title">Kits that own the tunnel.</h2>
+        </motion.div>
+        <ShowcaseGrid items={trendingJerseys} />
       </section>
 
-      <section id="newsletter" className="container-shell py-20 sm:py-24">
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-120px" }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-          className="relative overflow-hidden rounded-lg border border-lime-300/25 bg-lime-300 p-5 text-slate-950 sm:p-8 lg:p-10"
-        >
-          <div className="absolute inset-y-0 right-0 hidden w-1/2 bg-[radial-gradient(circle_at_80%_35%,rgba(15,23,42,0.28),transparent_30%),linear-gradient(135deg,transparent,rgba(15,23,42,0.18))] lg:block" />
-          <div className="relative max-w-2xl">
-            <p className="font-mono text-xs font-bold uppercase tracking-[0.24em]">Clubhouse access</p>
-            <h2 className="mt-3 text-3xl font-black leading-tight sm:text-5xl">Get the next drop before kickoff.</h2>
-            <p className="mt-4 text-sm font-medium leading-7 text-slate-800 sm:text-base">
-              Get boot launches, jersey capsules, and club-inspired drops before the crowd sees them.
-            </p>
-            <form className="mt-7 grid gap-3 sm:flex sm:flex-row">
-              <label className="sr-only" htmlFor="newsletter-email">
-                Email address
-              </label>
-              <input
-                id="newsletter-email"
-                type="email"
-                placeholder="Email address"
-                className="h-14 w-full min-w-0 flex-1 border border-slate-950/20 bg-white/85 px-4 text-base font-semibold text-slate-950 outline-none placeholder:text-slate-600 focus:border-slate-950 sm:h-12 sm:text-sm"
-              />
-              <motion.button
-                type="button"
-                whileHover={{ y: -3 }}
-                whileTap={{ scale: 0.98 }}
-                className="inline-flex h-14 w-full items-center justify-center gap-2 bg-slate-950 px-6 text-sm font-extrabold text-white sm:h-12 sm:w-auto"
-              >
-                <Mail size={18} />
-                Notify me
-              </motion.button>
-            </form>
+      <section className="aww-testimonials">
+        <motion.div variants={reveal} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-8%" }} className="aww-testimonial-shell">
+          <div className="aww-testimonial-intro">
+            <p className="aww-eyebrow rounded-lg bg-black px-4 py-3 text-white opacity-100">Testimonials</p>
+            <h2>
+              What players say <span>about shopping here.</span>
+            </h2>
+            <Link href="/products" className="aww-cta mt-auto">
+              Start shopping <span />
+            </Link>
+          </div>
+          <div className="aww-testimonial-rail">
+            <div className="aww-testimonial-track">
+              {[...testimonials, ...testimonials].map((item, index) => (
+                <figure key={`${item.name}-${index}`} className="aww-testimonial-card">
+                  <blockquote>&ldquo;{item.quote}&rdquo;</blockquote>
+                  <figcaption>
+                    <strong>{item.name}</strong>
+                    <small>{item.role}</small>
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
           </div>
         </motion.div>
       </section>
-    </>
+
+      <section id="arrivals" className="aww-news">
+        <motion.p variants={reveal} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-8%" }} className="aww-section-eyebrow">
+          Latest news
+        </motion.p>
+        <div className="aww-news-stage">
+          {insights.map((item, index) => (
+            <InsightCard key={item.title} item={item} index={index} />
+          ))}
+        </div>
+      </section>
+
+      <section id="newsletter" className="aww-contact">
+        <motion.div variants={reveal} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-8%" }} className="aww-contact-copy">
+          <p className="aww-section-eyebrow">Ready before kickoff?</p>
+          <h2>Get early access to the next drop.</h2>
+        </motion.div>
+        <motion.form variants={reveal} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-8%" }} className="aww-quote-form">
+          <label>
+            Your name
+            <input type="text" name="name" />
+          </label>
+          <label>
+            Email
+            <input type="email" name="email" />
+          </label>
+          <label className="wide">
+            What are you looking for?
+            <textarea name="message" rows={5} />
+          </label>
+          <button className="aww-cta" type="button">
+            Join clubhouse <Mail size={16} />
+          </button>
+        </motion.form>
+      </section>
+    </main>
   );
 }
 
-type ShowcaseSectionProps = {
-  id: string;
-  eyebrow: string;
-  title: string;
-  description: string;
-  items: typeof trendingJerseys;
-  alternate?: boolean;
-};
+function MobileHeroCarousel() {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isTransitionGlitching, setIsTransitionGlitching] = useState(false);
+  const carouselRef = useRef<HTMLDivElement | null>(null);
+  const isTransitionGlitchingRef = useRef(false);
+  const switchTimeoutRef = useRef<number | null>(null);
+  const settleTimeoutRef = useRef<number | null>(null);
+  const { scrollYProgress } = useScroll({ target: carouselRef, offset: ["start start", "end start"] });
+  const imageScrollY = useTransform(scrollYProgress, [0, 1], ["0%", "9%"]);
+  const imageScrollScale = useTransform(scrollYProgress, [0, 1], [1, 1.055]);
+  const contentScrollY = useTransform(scrollYProgress, [0, 1], ["0px", "28px"]);
 
-function ShowcaseSection({ id, eyebrow, title, description, items, alternate }: ShowcaseSectionProps) {
+  useEffect(() => {
+    function triggerGlitchCut(nextIndex?: number) {
+      if (isTransitionGlitchingRef.current) {
+        return;
+      }
+
+      isTransitionGlitchingRef.current = true;
+      setIsTransitionGlitching(true);
+      switchTimeoutRef.current = window.setTimeout(() => {
+        setActiveIndex((index) => (typeof nextIndex === "number" ? nextIndex : (index + 1) % mobileHeroSlides.length));
+      }, 360);
+      settleTimeoutRef.current = window.setTimeout(() => {
+        isTransitionGlitchingRef.current = false;
+        setIsTransitionGlitching(false);
+      }, 980);
+    }
+
+    const timer = window.setInterval(() => {
+      triggerGlitchCut();
+    }, mobileHeroSlideDuration);
+
+    return () => {
+      window.clearInterval(timer);
+      if (switchTimeoutRef.current) window.clearTimeout(switchTimeoutRef.current);
+      if (settleTimeoutRef.current) window.clearTimeout(settleTimeoutRef.current);
+    };
+  }, []);
+
+  function showSlide(index: number) {
+    if (index === activeIndex || isTransitionGlitchingRef.current) {
+      return;
+    }
+
+    isTransitionGlitchingRef.current = true;
+    setIsTransitionGlitching(true);
+    switchTimeoutRef.current = window.setTimeout(() => {
+      setActiveIndex(index);
+    }, 360);
+    settleTimeoutRef.current = window.setTimeout(() => {
+      isTransitionGlitchingRef.current = false;
+      setIsTransitionGlitching(false);
+    }, 980);
+  }
+
   return (
-    <section id={id} className={cn("py-20 sm:py-24", alternate ? "border-y border-slate-200 bg-white" : "")}>
-      <div className="container-shell">
-        <SectionTitle eyebrow={eyebrow} title={title} description={description} />
-        <div className="mt-10 grid gap-4 md:grid-cols-3">
-          {items.map((item, index) => (
-            <ProductShowcaseCard key={item.name} item={item} index={index} />
-          ))}
-        </div>
+    <div ref={carouselRef} className={`aww-mobile-hero-carousel ${isTransitionGlitching ? "is-glitch-cutting" : ""}`} aria-label="Featured football drops carousel">
+      <div className="aww-mobile-phone-frame">
+        {mobileHeroSlides.map((slide, index) => (
+          <motion.div
+            key={slide.title}
+            className={`aww-mobile-hero-slide ${activeIndex === index ? "is-active" : ""}`}
+            style={{ "--hero-glitch-image": `url(${slide.image})` } as CSSProperties}
+            initial={false}
+            animate={{
+              opacity: activeIndex === index ? 1 : 0,
+              scale: 1,
+            }}
+            transition={{ duration: 0.08, ease: "linear" }}
+            aria-hidden={activeIndex !== index}
+          >
+            <motion.div className="aww-mobile-hero-image-wrap" style={{ y: imageScrollY, scale: imageScrollScale }}>
+              <Image src={slide.image} alt={slide.title} fill sizes="100vw" className="object-cover object-center" priority={index === 0} />
+            </motion.div>
+            <motion.div className="aww-mobile-slide-content" style={{ y: contentScrollY }}>
+              <span>
+                {String(index + 1).padStart(2, "0")} / {String(mobileHeroSlides.length).padStart(2, "0")}
+              </span>
+              <div className="aww-mobile-slide-label">{slide.title}</div>
+            </motion.div>
+          </motion.div>
+        ))}
       </div>
-    </section>
+      <div className="aww-mobile-progress" aria-hidden="true">
+        {mobileHeroSlides.map((slide, index) => (
+          <button
+            key={slide.title}
+            type="button"
+            className={index === activeIndex ? "is-active" : ""}
+            onClick={() => showSlide(index)}
+            aria-label={`Show ${slide.title}`}
+          >
+            <span />
+          </button>
+        ))}
+      </div>
+    </div>
   );
+}
+
+function ScrollRevealStatement({ text, progress }: { text: string; progress: MotionValue<number> }) {
+  const words = text.split(" ");
+
+  return (
+    <h2 className="aww-big-statement aww-scroll-word-statement" aria-label={text}>
+      {words.map((word, index) => (
+        <ScrollRevealWord key={`${word}-${index}`} word={word} index={index} total={words.length} progress={progress} />
+      ))}
+    </h2>
+  );
+}
+
+function ScrollRevealWord({ word, index, total, progress }: { word: string; index: number; total: number; progress: MotionValue<number> }) {
+  const start = 0.06 + (index / total) * 0.32;
+  const end = start + 0.14;
+  const opacity = useTransform(progress, [start, end], [0.42, 1]);
+  const y = useTransform(progress, [start, end], [10, 0]);
+  const filter = useTransform(progress, [start, end], ["blur(2.5px)", "blur(0px)"]);
+
+  return (
+    <motion.span aria-hidden="true" style={{ opacity, y, filter }}>
+      {word}
+    </motion.span>
+  );
+}
+
+function ServiceCard({ tile, index }: { tile: (typeof serviceTiles)[number]; index: number }) {
+  const glitchDirection = getGlitchDirection(index);
+
+  return (
+    <motion.article
+      variants={reveal}
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, margin: "-8%" }}
+      transition={{ delay: index * 0.07 }}
+      className={`aww-service-card scroll-glitch-media glitch-${glitchDirection}`}
+      style={{ "--scroll-glitch-image": `url(${tile.image})` } as CSSProperties}
+    >
+      <Link href={tile.href} className="block h-full">
+        <Image src={tile.image} alt={tile.title} fill sizes="(min-width: 1280px) 25vw, (min-width: 700px) 50vw, 82vw" className="object-cover" />
+        <ScrollGlitchLayer />
+        <div className="aww-card-shade" />
+        <h2>
+          {tile.title}
+          <small>{tile.count}</small>
+        </h2>
+        <ul>
+          {tile.tags.map((tag) => (
+            <li key={tag}>{tag}</li>
+          ))}
+        </ul>
+        <span className="aww-service-more">See More</span>
+        <tile.icon className="aww-pixel-icon" size={40} strokeWidth={1.7} />
+      </Link>
+    </motion.article>
+  );
+}
+
+function ProjectCard({ project, index }: { project: (typeof projects)[number]; index: number }) {
+  const glitchDirection = getGlitchDirection(index + 2);
+  const cardRef = useRef<HTMLElement | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const buttonPositionRef = useRef({ x: 0, y: 0 });
+  const targetPositionRef = useRef({ x: 0, y: 0 });
+
+  function handlePointerMove(event: PointerEvent<HTMLElement>) {
+    const card = cardRef.current;
+
+    if (!card) {
+      return;
+    }
+
+    const rect = card.getBoundingClientRect();
+    const x = Math.min(Math.max(event.clientX - rect.left, 92), rect.width - 92);
+    const y = Math.min(Math.max(event.clientY - rect.top, 34), rect.height - 34);
+
+    targetPositionRef.current = { x, y };
+
+    if (!animationFrameRef.current) {
+      buttonPositionRef.current = buttonPositionRef.current.x || buttonPositionRef.current.y ? buttonPositionRef.current : { x, y };
+      animateProjectButton();
+    }
+  }
+
+  function animateProjectButton() {
+    const card = cardRef.current;
+
+    if (!card) {
+      animationFrameRef.current = null;
+      return;
+    }
+
+    const current = buttonPositionRef.current;
+    const target = targetPositionRef.current;
+    const nextX = current.x + (target.x - current.x) * 0.18;
+    const nextY = current.y + (target.y - current.y) * 0.18;
+
+    buttonPositionRef.current = { x: nextX, y: nextY };
+    card.style.setProperty("--project-button-x", `${nextX}px`);
+    card.style.setProperty("--project-button-y", `${nextY}px`);
+
+    if (Math.abs(target.x - nextX) > 0.35 || Math.abs(target.y - nextY) > 0.35) {
+      animationFrameRef.current = window.requestAnimationFrame(animateProjectButton);
+      return;
+    }
+
+    card.style.setProperty("--project-button-x", `${target.x}px`);
+    card.style.setProperty("--project-button-y", `${target.y}px`);
+    buttonPositionRef.current = target;
+    animationFrameRef.current = null;
+  }
+
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current) {
+        window.cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
+
+  return (
+    <motion.article
+      ref={cardRef}
+      variants={reveal}
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, margin: "-10%" }}
+      transition={{ delay: index * 0.08 }}
+      className="aww-project-card"
+      onPointerMove={handlePointerMove}
+    >
+      <Link href={project.href} className="aww-project-link">
+        <motion.div
+          className={`aww-project-media scroll-glitch-media glitch-${glitchDirection}`}
+          style={{ "--scroll-glitch-image": `url(${project.image})` } as CSSProperties}
+          initial={false}
+          viewport={{ once: true, margin: "-12%" }}
+        >
+          <Image src={project.image} alt={project.title} fill sizes="(min-width: 1024px) 42vw, 100vw" className="object-cover" />
+          <ScrollGlitchLayer />
+        </motion.div>
+        <span className="aww-project-button">
+          See the product <ArrowRight size={14} />
+        </span>
+        <div className="aww-project-copy">
+          <motion.h2
+            className="aww-project-title"
+            initial={{ opacity: 0.001, y: 22 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-8%" }}
+            transition={{ duration: 0.7, ease, delay: 0.08 }}
+          >
+            {project.title}
+          </motion.h2>
+          <motion.p
+            className="aww-project-description"
+            initial={{ opacity: 0.001, y: 18 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-8%" }}
+            transition={{ duration: 0.7, ease, delay: 0.14 }}
+          >
+            {project.description}
+          </motion.p>
+          <dl>
+            {project.details.map(([label, value]) => (
+              <motion.div
+                key={label}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-12%" }}
+                transition={{ duration: 0.72, ease, delay: 0.2 }}
+              >
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </motion.div>
+            ))}
+          </dl>
+        </div>
+      </Link>
+    </motion.article>
+  );
+}
+
+function ShowcaseGrid({ items }: { items: ShowcaseItem[] }) {
+  return (
+    <div className="grid gap-4 md:grid-cols-3">
+      {items.map((item, index) => (
+        <ProductShowcaseCard key={item.name} item={item} index={index} />
+      ))}
+    </div>
+  );
+}
+
+function InsightCard({ item, index }: { item: (typeof insights)[number]; index: number }) {
+  const glitchDirection = getGlitchDirection(index + 4);
+
+  return (
+    <motion.article
+      variants={reveal}
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, margin: "-8%" }}
+      transition={{ delay: index * 0.08 }}
+      className={index === 0 ? "aww-news-card" : "aww-news-card aww-news-card-secondary"}
+    >
+      <Link href={item.href} className="grid h-full gap-6 sm:grid-cols-[0.9fr_1fr]">
+        <div className="aww-news-copy">
+          <h2>{item.title}</h2>
+          <time>{item.date}</time>
+        </div>
+        <motion.div
+          className={`aww-news-image scroll-glitch-media glitch-${glitchDirection}`}
+          style={{ "--scroll-glitch-image": `url(${item.image})` } as CSSProperties}
+          initial={false}
+          viewport={{ once: true, margin: "-12%" }}
+        >
+          <Image src={item.image} alt={item.title} fill sizes="(min-width: 1024px) 28vw, 100vw" className="object-cover" />
+          <ScrollGlitchLayer />
+        </motion.div>
+        <span className="aww-news-arrow" aria-hidden="true">
+          <ArrowRight size={18} />
+        </span>
+      </Link>
+    </motion.article>
+  );
+}
+
+function ScrollGlitchLayer() {
+  return (
+    <motion.span
+      className="scroll-glitch-layer"
+      aria-hidden="true"
+      initial={{ opacity: 0, x: 0, clipPath: "inset(0 0 0 0)" }}
+      whileInView={{
+        opacity: [0, 0.78, 0.54, 0.68, 0.38, 0],
+        x: ["0px", "var(--glitch-x-1)", "var(--glitch-x-2)", "var(--glitch-x-3)", "var(--glitch-x-4)", "0px"],
+        y: ["0px", "var(--glitch-y-1)", "var(--glitch-y-2)", "var(--glitch-y-3)", "var(--glitch-y-4)", "0px"],
+        clipPath: ["inset(0 0 0 0)", "inset(8% 0 62% 0)", "inset(54% 0 12% 0)", "inset(26% 0 38% 0)", "inset(70% 0 6% 0)", "inset(0 0 0 0)"],
+      }}
+      viewport={{ once: true, margin: "-14%" }}
+      transition={{ duration: 1.28, ease: "linear", times: [0, 0.14, 0.3, 0.48, 0.68, 1] }}
+    />
+  );
+}
+
+function getGlitchDirection(index: number) {
+  return ["left", "right", "up", "down", "diag"][index % 5];
 }

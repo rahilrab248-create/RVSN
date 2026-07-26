@@ -61,9 +61,13 @@ export type ShippingAddress = {
 
 export type Order = {
   id?: string;
+  orderNumber?: string;
   userId: string;
   items: OrderItem[];
   status: OrderStatus;
+  paymentMethod?: PaymentRecord["provider"];
+  paymentStatus?: PaymentStatus | string;
+  couponCode?: string | null;
   subtotal: number;
   shipping: number;
   discount?: number;

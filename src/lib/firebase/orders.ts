@@ -5,7 +5,9 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   onSnapshot,
+  orderBy,
   query,
   serverTimestamp,
   updateDoc,
@@ -20,25 +22,29 @@ import { ordersCollectionRef } from "@/lib/firebase/shared-refs";
 import type { Order, OrderInput, OrderStatus } from "@/types/ecommerce";
 
 export async function getUserOrders(userId: string): Promise<Order[]> {
+  const count = 25;
   const snapshot = await getDocs(
-    query(ordersCollectionRef(), where("userId", "==", userId)),
+    query(ordersCollectionRef(), where("userId", "==", userId), limit(count)),
   );
   return sortOrders(snapshot.docs.map((item) => item.data()));
+}
+
+export function subscribeUserOrders(
+  userId: string,
+  onNext: (orders: Order[]) => void,
+  onError?: (error: Error) => void,
+): Unsubscribe {
+  const count = 25;
+  return onSnapshot(
+    query(ordersCollectionRef(), where("userId", "==", userId), limit(count)),
+    (snapshot) => onNext(sortOrders(snapshot.docs.map((item) => item.data()))),
+    (error) => onError?.(error),
+  );
 }
 
 export async function getOrders(): Promise<Order[]> {
-  const snapshot = await getDocs(query(ordersCollectionRef()));
+  const snapshot = await getDocs(query(ordersCollectionRef(), orderBy("createdAt", "desc"), limit(50)));
   return sortOrders(snapshot.docs.map((item) => item.data()));
-}
-
-export function subscribeToUserOrders(userId: string, onNext: (orders: Order[]) => void, onError?: (error: Error) => void): Unsubscribe {
-  return onSnapshot(
-    query(ordersCollectionRef(), where("userId", "==", userId)),
-    (snapshot) => {
-      onNext(sortOrders(snapshot.docs.map((item) => item.data())));
-    },
-    onError,
-  );
 }
 
 export async function getOrder(orderId: string): Promise<Order | null> {
@@ -53,8 +59,23 @@ export async function getOrder(orderId: string): Promise<Order | null> {
 }
 
 export function createOrder(data: OrderInput) {
+  const paymentMethod = data.paymentMethod ?? data.payment?.provider ?? "cash_on_delivery";
+  const paymentStatus = data.paymentStatus ?? data.payment?.status ?? (paymentMethod === "cash_on_delivery" ? "unpaid" : "paid");
+  const currency = data.currency ?? data.payment?.currency ?? null;
+
   return addDoc(ordersCollectionRef(), {
     ...data,
+    orderNumber: data.orderNumber ?? createOrderNumber(),
+    paymentMethod,
+    paymentStatus,
+    payment: data.payment ?? {
+      provider: paymentMethod,
+      status: paymentStatus,
+      amountTotal: data.total,
+      currency,
+      stripeSessionId: null,
+      stripePaymentIntentId: null,
+    },
     status: data.status ?? "pending",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -76,6 +97,14 @@ export function updateOrderStatus(orderId: string, status: OrderStatus) {
 
 function sortOrders(orders: Order[]) {
   return orders.slice().sort((a, b) => timestampMillis(b.createdAt) - timestampMillis(a.createdAt));
+}
+
+function createOrderNumber() {
+  const date = new Date();
+  const datePart = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
+  const randomPart = Math.random().toString(36).slice(2, 7).toUpperCase();
+
+  return `RVSN-${datePart}-${randomPart}`;
 }
 
 function timestampMillis(value: Timestamp | Date | undefined) {

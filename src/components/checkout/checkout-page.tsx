@@ -2,6 +2,7 @@
 
 import { cloneElement, type FormEvent, type ReactElement, type ReactNode, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 import {
   BadgeCheck,
   Banknote,
@@ -22,6 +23,7 @@ import { useAuthPrompt } from "@/contexts/auth-prompt-context";
 import { hasFirebaseClientConfig } from "@/lib/firebase/config";
 import { createOrder } from "@/lib/firebase/orders";
 import { createStripeCheckoutSession } from "@/lib/firebase/payments";
+import { sendOrderWhatsAppNotification } from "@/lib/notifications/whatsapp-client";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useCart } from "@/hooks/use-cart";
@@ -96,6 +98,7 @@ function writeSavedAddresses(addresses: SavedAddress[]) {
 }
 
 export function CheckoutPage() {
+  const router = useRouter();
   const { user, profile, isAuthenticated } = useAuth();
   const { openAuthPrompt } = useAuthPrompt();
   const { items, subtotal, itemCount, clearCart } = useCart();
@@ -231,7 +234,7 @@ export function CheckoutPage() {
       }
 
       if (hasFirebaseClientConfig()) {
-        const order = await createOrder({
+        const orderInput = {
           userId: user.uid,
           items: items.map((item) => ({
             productId: item.productId,
@@ -244,8 +247,20 @@ export function CheckoutPage() {
           })),
           subtotal,
           shipping,
+          discount,
           total,
           currency: selectedCountry.currencyCode,
+          couponCode: appliedCoupon?.code ?? null,
+          paymentMethod: "cash_on_delivery",
+          paymentStatus: "unpaid",
+          payment: {
+            provider: "cash_on_delivery",
+            status: "unpaid",
+            amountTotal: total,
+            currency: selectedCountry.currencyCode,
+            stripeSessionId: null,
+            stripePaymentIntentId: null,
+          },
           shippingAddress: {
             name: form.name,
             email: form.email,
@@ -258,9 +273,16 @@ export function CheckoutPage() {
             country: form.country,
           },
           status: "pending",
+        } as const;
+        const order = await createOrder(orderInput);
+        void sendOrderWhatsAppNotification({
+          event: "order_placed",
+          orderId: order.id,
+          order: orderInput,
+          nextStatus: "pending",
         });
         await clearCart();
-        setSuccessMessage(`Cash on delivery order placed. Order reference: ${order.id}.`);
+        router.push(`/checkout/success?order_id=${encodeURIComponent(order.id)}`);
       } else {
         await clearCart();
         setSuccessMessage("Cash on delivery order is ready. Online order sync is not connected for this session.");
@@ -273,7 +295,7 @@ export function CheckoutPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.24),transparent_35%),linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)] pt-28 text-slate-950 dark:bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,0.12),transparent_35%),linear-gradient(180deg,#070a0f_0%,#101826_100%)] dark:text-white">
+    <main className="purple-page-shell min-h-screen pt-22 text-white sm:pt-28">
       <section className="mx-auto grid w-full max-w-7xl gap-8 px-4 pb-20 sm:px-6 lg:grid-cols-[minmax(0,1fr)_420px] lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -283,14 +305,14 @@ export function CheckoutPage() {
         >
           <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.28em] text-lime-700 dark:text-lime-300">Secure checkout</p>
-              <h1 className="mt-3 text-4xl font-black tracking-tight text-slate-950 dark:text-white sm:text-5xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-violet-100/58">Secure checkout</p>
+              <h1 className="mt-3 text-4xl font-normal tracking-[-0.06em] text-white sm:text-5xl">
                 Finish the match.
               </h1>
             </div>
             <Link
               href="/products"
-              className="inline-flex h-11 items-center gap-2 border border-slate-300 bg-white px-4 text-sm font-extrabold text-slate-950 shadow-sm transition hover:border-lime-500 hover:text-lime-700 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:border-lime-300 dark:hover:text-lime-200"
+              className="inline-flex h-11 items-center gap-2 rounded-full border border-white/12 bg-white/[0.07] px-4 text-sm font-semibold text-white shadow-sm backdrop-blur-xl transition hover:border-violet-100/45 hover:bg-white/[0.14]"
             >
               Keep shopping <ChevronRight size={16} />
             </Link>
@@ -301,14 +323,14 @@ export function CheckoutPage() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.08 }}
-              className="border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/60 dark:border-white/10 dark:bg-slate-900 dark:shadow-slate-950/30 sm:p-6"
+              className="rounded-[28px] border border-white/10 bg-white/[0.055] p-5 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-6"
             >
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-300">Address management</p>
-                  <h2 className="mt-1 text-2xl font-black text-slate-950 dark:text-white">Shipping details</h2>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-100/50">Address management</p>
+                  <h2 className="mt-1 text-2xl font-normal tracking-[-0.04em] text-white">Shipping details</h2>
                 </div>
-                <span className="grid size-11 place-items-center bg-slate-950 text-lime-300 dark:bg-lime-300 dark:text-slate-950">
+                <span className="grid size-11 place-items-center rounded-2xl border border-white/12 bg-white/[0.08] text-violet-100">
                   <MapPin size={20} />
                 </span>
               </div>
@@ -320,10 +342,10 @@ export function CheckoutPage() {
                       key={address.id}
                       type="button"
                       onClick={() => selectSavedAddress(address)}
-                      className="border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-lime-500 hover:bg-lime-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-lime-300 dark:hover:bg-lime-300/10"
+                      className="rounded-[18px] border border-white/10 bg-white/[0.06] p-4 text-left transition hover:border-violet-100/45 hover:bg-white/[0.11]"
                     >
-                      <p className="text-sm font-black text-slate-950 dark:text-white">{address.name}</p>
-                      <p className="mt-1 line-clamp-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                      <p className="text-sm font-semibold text-white">{address.name}</p>
+                      <p className="mt-1 line-clamp-2 text-xs font-semibold text-white/50">
                         {address.line1}, {address.city}, {address.country}
                       </p>
                     </button>
@@ -366,12 +388,12 @@ export function CheckoutPage() {
                     onChange={(event) => updateField("postalCode", event.target.value)}
                   />
                 </Field>
-                <label className="flex items-center gap-3 pt-7 text-sm font-bold text-slate-700 dark:text-slate-200">
+                <label className="flex items-center gap-3 pt-7 text-sm font-semibold text-white/70">
                   <input
                     type="checkbox"
                     checked={form.saveAddress}
                     onChange={(event) => updateField("saveAddress", event.target.checked)}
-                    className="size-4 accent-lime-500"
+                    className="size-4 accent-violet-300"
                   />
                   Save this address
                 </label>
@@ -382,14 +404,14 @@ export function CheckoutPage() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.16 }}
-              className="border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/60 dark:border-white/10 dark:bg-slate-900 dark:shadow-slate-950/30 sm:p-6"
+              className="rounded-[28px] border border-white/10 bg-white/[0.055] p-5 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-6"
             >
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500 dark:text-slate-300">Payment options</p>
-                  <h2 className="mt-1 text-2xl font-black text-slate-950 dark:text-white">Choose payment</h2>
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-100/50">Payment options</p>
+                  <h2 className="mt-1 text-2xl font-normal tracking-[-0.04em] text-white">Choose payment</h2>
                 </div>
-                <span className="grid size-11 place-items-center bg-lime-300 text-slate-950">
+                <span className="grid size-11 place-items-center rounded-2xl border border-white/12 bg-white/[0.08] text-violet-100">
                   <ShieldCheck size={20} />
                 </span>
               </div>
@@ -410,7 +432,7 @@ export function CheckoutPage() {
                   onClick={() => setPaymentMethod("cash_on_delivery")}
                 />
               </div>
-              {errors.payment ? <p className="mt-3 text-sm font-bold text-red-600">{errors.payment}</p> : null}
+              {errors.payment ? <p className="mt-3 text-sm font-semibold text-red-200">{errors.payment}</p> : null}
             </motion.section>
 
             <AnimatePresence>
@@ -419,7 +441,7 @@ export function CheckoutPage() {
                   initial={{ opacity: 0, y: -6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
-                  className="border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-700"
+                  className="rounded-[18px] border border-red-300/25 bg-red-500/10 p-4 text-sm font-semibold text-red-100"
                 >
                   {errors.cart}
                 </motion.p>
@@ -429,7 +451,7 @@ export function CheckoutPage() {
                   initial={{ opacity: 0, y: -6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
-                  className="flex items-start gap-3 border border-lime-300 bg-lime-50 p-4 text-sm font-bold text-lime-800"
+                  className="flex items-start gap-3 rounded-[18px] border border-violet-200/25 bg-violet-300/10 p-4 text-sm font-semibold text-violet-50"
                 >
                   <BadgeCheck className="mt-0.5 shrink-0" size={18} />
                   <span>{successMessage}</span>
@@ -441,7 +463,7 @@ export function CheckoutPage() {
               whileHover={{ y: itemCount ? -2 : 0 }}
               whileTap={{ scale: itemCount ? 0.98 : 1 }}
               disabled={isSubmitting || !itemCount}
-              className="h-14 border border-emerald-600 bg-emerald-600 px-6 text-sm font-black uppercase tracking-[0.18em] text-white shadow-xl shadow-emerald-200/60 transition hover:border-slate-950 hover:bg-slate-950 hover:text-white disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300 disabled:text-slate-600 disabled:shadow-none dark:border-emerald-400 dark:bg-emerald-400 dark:text-slate-950 dark:shadow-emerald-950/30 dark:hover:border-white dark:hover:bg-white dark:disabled:border-white/10 dark:disabled:bg-white/10 dark:disabled:text-slate-400"
+              className="h-14 rounded-full border border-white bg-white px-6 text-sm font-black uppercase tracking-[0.18em] text-black shadow-xl shadow-black/30 transition hover:border-violet-100 hover:bg-violet-100 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/10 disabled:text-white/36 disabled:shadow-none"
             >
               {isSubmitting ? (
                 <span className="inline-flex items-center gap-2">
@@ -460,36 +482,36 @@ export function CheckoutPage() {
           initial={{ opacity: 0, x: 24 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.45, delay: 0.12 }}
-          className="h-fit border border-slate-200 bg-slate-950 p-5 text-white shadow-2xl shadow-slate-900/25 dark:border-white/10 lg:sticky lg:top-28"
+          className="h-fit rounded-[28px] border border-white/10 bg-white/[0.055] p-5 text-white shadow-2xl shadow-black/30 backdrop-blur-xl lg:sticky lg:top-28"
         >
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.24em] text-lime-300">Order summary</p>
-              <h2 className="mt-1 text-2xl font-black">Match kit</h2>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-violet-100/50">Order summary</p>
+              <h2 className="mt-1 text-2xl font-normal tracking-[-0.04em]">Match kit</h2>
             </div>
-            <PackageCheck className="text-lime-300" size={26} />
+            <PackageCheck className="text-violet-100" size={26} />
           </div>
 
-          <div className="mt-6 grid max-h-[360px] gap-4 overflow-y-auto pr-1">
+          <div className="mt-6 grid max-h-[360px] gap-4 overflow-y-auto pr-1" data-lenis-prevent>
             {items.length ? (
               items.map((item) => (
                 <article key={item.id} className="grid grid-cols-[72px_1fr_auto] items-center gap-3">
-                  <div className="relative aspect-square overflow-hidden bg-white/10">
-                    <Image src={item.image} alt={item.title} fill sizes="72px" className="object-cover" />
+                  <div className="relative aspect-square overflow-hidden rounded-[14px] bg-white/10">
+                    <Image src={item.image} alt={item.title} fill sizes="72px" className="object-contain p-1" />
                   </div>
                   <div className="min-w-0">
                     <h3 className="line-clamp-1 text-sm font-black">{item.title}</h3>
-                    <p className="mt-1 text-xs font-semibold text-slate-300">
+                    <p className="mt-1 text-xs font-semibold text-white/48">
                       {item.brand} / {item.size} / Qty {item.quantity}
                     </p>
                   </div>
-                  <p className="text-sm font-black text-lime-300">{formatPrice(item.price * item.quantity)}</p>
+                  <p className="text-sm font-semibold text-violet-100">{formatPrice(item.price * item.quantity)}</p>
                 </article>
               ))
             ) : (
-              <div className="border border-white/10 bg-white/5 p-5 text-center">
-                <Home className="mx-auto text-lime-300" size={24} />
-                <p className="mt-3 text-sm font-bold text-slate-200">Your cart is waiting for a starting eleven.</p>
+              <div className="rounded-[18px] border border-white/10 bg-white/[0.06] p-5 text-center">
+                <Home className="mx-auto text-violet-100" size={24} />
+                <p className="mt-3 text-sm font-semibold text-white/64">Your cart is waiting for a starting eleven.</p>
               </div>
             )}
           </div>
@@ -502,23 +524,23 @@ export function CheckoutPage() {
                   value={couponInput}
                   onChange={(event) => setCouponInput(event.target.value)}
                   placeholder="Coupon code"
-                  className="h-11 w-full border border-white/10 bg-white/10 pl-10 pr-3 text-sm font-bold text-white outline-none placeholder:text-slate-400 focus:border-lime-300"
+                  className="h-11 w-full rounded-full border border-white/10 bg-white/[0.07] pl-10 pr-3 text-sm font-semibold text-white outline-none placeholder:text-white/36 focus:border-violet-100/60"
                 />
               </div>
               <button
                 type="button"
                 onClick={applyCoupon}
-                className="h-11 bg-lime-300 px-4 text-sm font-black text-slate-950 transition hover:bg-white"
+                className="h-11 rounded-full bg-white px-4 text-sm font-bold text-black transition hover:bg-violet-100"
               >
                 Apply
               </button>
             </div>
             {couponMessage ? (
-              <p className={cn("mt-2 text-xs font-bold", appliedCoupon ? "text-lime-300" : "text-red-300")}>
+              <p className={cn("mt-2 text-xs font-semibold", appliedCoupon ? "text-violet-100" : "text-red-300")}>
                 {couponMessage}
               </p>
             ) : (
-              <p className="mt-2 text-xs font-semibold text-slate-400">Try KICKOFF10 or FREESHIP.</p>
+              <p className="mt-2 text-xs font-semibold text-white/42">Try KICKOFF10 or FREESHIP.</p>
             )}
           </div>
 
@@ -528,13 +550,13 @@ export function CheckoutPage() {
             <SummaryLine label="Discount" value={`-${formatPrice(discount)}`} muted={!discount} />
             <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-4 text-xl font-black">
               <span>Total</span>
-              <span className="text-lime-300">{formatPrice(total)}</span>
+              <span className="text-violet-100">{formatPrice(total)}</span>
             </div>
           </div>
 
-          <div className="mt-6 flex items-center gap-3 border border-lime-300/30 bg-lime-300/10 p-4">
-            <Sparkles className="shrink-0 text-lime-300" size={20} />
-            <p className="text-xs font-semibold leading-5 text-slate-200">
+          <div className="mt-6 flex items-center gap-3 rounded-[18px] border border-violet-200/20 bg-violet-300/10 p-4">
+            <Sparkles className="shrink-0 text-violet-100" size={20} />
+            <p className="text-xs font-semibold leading-5 text-white/62">
               Secure checkout with cash on delivery support and matchday order tracking.
             </p>
           </div>
@@ -557,15 +579,15 @@ function Field({
 }) {
   return (
     <label className={cn("grid gap-2", className)}>
-      <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-500 dark:text-slate-300">{label}</span>
+      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-100/48">{label}</span>
       {cloneElement(children, {
         className: cn(
-          "h-12 border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-lime-500 focus:bg-white dark:border-white/10 dark:bg-white/10 dark:text-white dark:placeholder:text-slate-400 dark:focus:border-lime-300 dark:focus:bg-white/15",
-          error && "border-red-300 bg-red-50 dark:border-red-400 dark:bg-red-500/10",
+          "h-12 rounded-[16px] border border-white/10 bg-white/[0.07] px-4 text-sm font-semibold text-white outline-none transition placeholder:text-white/36 focus:border-violet-100/60 focus:bg-white/[0.11]",
+          error && "border-red-300/50 bg-red-500/10",
           children.props.className,
         ),
       })}
-      {error ? <span className="text-xs font-bold text-red-600 dark:text-red-300">{error}</span> : null}
+      {error ? <span className="text-xs font-semibold text-red-200">{error}</span> : null}
     </label>
   );
 }
@@ -588,18 +610,18 @@ function PaymentOption({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex min-h-32 items-start gap-4 border p-4 text-left transition",
+        "flex min-h-32 items-start gap-4 rounded-[20px] border p-4 text-left transition",
         active
-          ? "border-lime-500 bg-lime-50 shadow-lg shadow-lime-200/50 dark:border-lime-300 dark:bg-lime-300/15 dark:shadow-lime-950/30"
-          : "border-slate-200 bg-slate-50 hover:border-slate-400 dark:border-white/10 dark:bg-white/5 dark:hover:border-slate-300",
+          ? "border-violet-100/45 bg-violet-300/12 shadow-lg shadow-black/20"
+          : "border-white/10 bg-white/[0.045] hover:border-white/32 hover:bg-white/[0.08]",
       )}
     >
-      <span className={cn("grid size-11 shrink-0 place-items-center", active ? "bg-slate-950 text-lime-300 dark:bg-lime-300 dark:text-slate-950" : "bg-white text-slate-700 dark:bg-white/10 dark:text-slate-200")}>
+      <span className={cn("grid size-11 shrink-0 place-items-center rounded-2xl border", active ? "border-violet-100/35 bg-white text-black" : "border-white/10 bg-white/10 text-white/70")}>
         {icon}
       </span>
       <span>
-        <span className="block text-base font-black text-slate-950 dark:text-white">{title}</span>
-        <span className="mt-2 block text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">{copy}</span>
+        <span className="block text-base font-semibold text-white">{title}</span>
+        <span className="mt-2 block text-sm font-semibold leading-6 text-white/52">{copy}</span>
       </span>
     </button>
   );
@@ -607,7 +629,7 @@ function PaymentOption({
 
 function SummaryLine({ label, value, muted = false }: { label: string; value: string; muted?: boolean }) {
   return (
-    <div className={cn("flex items-center justify-between", muted ? "text-slate-500" : "text-slate-300")}>
+    <div className={cn("flex items-center justify-between", muted ? "text-white/28" : "text-white/58")}>
       <span>{label}</span>
       <span className="font-black text-white">{value}</span>
     </div>

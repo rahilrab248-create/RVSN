@@ -6,6 +6,7 @@ import { AuthFormMessage } from "@/components/auth/auth-form-message";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { AuthSubmitButton } from "@/components/auth/auth-submit-button";
 import { useAuth } from "@/hooks/use-auth";
+import { getAuthErrorMessage } from "@/lib/firebase/auth-errors";
 
 export function ForgotPasswordForm() {
   const { forgotPassword } = useAuth();
@@ -25,7 +26,7 @@ export function ForgotPasswordForm() {
       await forgotPassword(String(formData.get("email")));
       setMessage("Password reset instructions sent. Check your inbox.");
     } catch (authError) {
-      setError(authError instanceof Error ? authError.message : "Unable to send reset email.");
+      setError(getAuthErrorMessage(authError, "Unable to send reset email. Please try again."));
     } finally {
       setIsSubmitting(false);
     }
@@ -38,8 +39,8 @@ export function ForgotPasswordForm() {
       description="Send a reset link to your locker email and get back into the matchday lineup."
     >
       <div className="mb-6">
-        <h2 className="text-2xl font-black text-slate-950">Forgot password</h2>
-        <p className="mt-2 text-sm text-slate-600">Enter your email to receive a reset link.</p>
+        <h2 className="text-2xl font-normal tracking-[-0.04em] text-white">Forgot password</h2>
+        <p className="mt-2 text-sm text-violet-100/58">Enter your email to receive a reset link.</p>
       </div>
 
       <form className="grid gap-4" onSubmit={handleSubmit}>
@@ -55,14 +56,14 @@ export function ForgotPasswordForm() {
           type="email"
           placeholder="Email address"
           autoComplete="email"
-          className="h-12 border border-slate-200 bg-white px-4 text-sm text-slate-950 outline-none transition placeholder:text-slate-500 focus:border-slate-950"
+          className="h-12 rounded-[18px] border border-white/12 bg-white/8 px-4 text-sm font-semibold text-white outline-none transition placeholder:text-violet-100/45 focus:border-violet-200 focus:ring-4 focus:ring-violet-300/10"
         />
         <AuthSubmitButton isLoading={isSubmitting}>Send reset link</AuthSubmitButton>
       </form>
 
-      <p className="mt-6 text-center text-sm text-slate-600">
+      <p className="mt-6 text-center text-sm text-violet-100/58">
         Remembered it?{" "}
-        <Link href="/login" className="font-semibold text-slate-950 hover:text-slate-600">
+        <Link href="/login" className="font-semibold text-white transition hover:text-violet-200">
           Login
         </Link>
       </p>

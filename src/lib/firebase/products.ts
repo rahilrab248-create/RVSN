@@ -21,6 +21,8 @@ import { collections, productPath } from "@/lib/firebase/collections";
 import { productConverter } from "@/lib/firebase/converters";
 import type { Product, ProductInput } from "@/types/ecommerce";
 
+const defaultProductReadLimit = 48;
+
 function productsCollection() {
   const db = getFirebaseDb();
 
@@ -32,7 +34,8 @@ function productsCollection() {
 }
 
 export async function getProducts(constraints: QueryConstraint[] = []): Promise<Product[]> {
-  const snapshot = await getDocs(query(productsCollection(), ...constraints));
+  const appliedConstraints = constraints.length ? constraints : [orderBy("createdAt", "desc"), limit(defaultProductReadLimit)];
+  const snapshot = await getDocs(query(productsCollection(), ...appliedConstraints));
   return snapshot.docs.map((item) => item.data());
 }
 

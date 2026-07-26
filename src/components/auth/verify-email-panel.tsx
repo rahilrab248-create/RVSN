@@ -8,6 +8,7 @@ import { AuthFormMessage } from "@/components/auth/auth-form-message";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { AuthSubmitButton } from "@/components/auth/auth-submit-button";
 import { useAuth } from "@/hooks/use-auth";
+import { getAuthErrorMessage } from "@/lib/firebase/auth-errors";
 
 export function VerifyEmailPanel() {
   const { user, sendEmailVerification, isLoading } = useAuth();
@@ -26,7 +27,7 @@ export function VerifyEmailPanel() {
       await sendEmailVerification();
       setMessage("Verification email sent. Check your inbox.");
     } catch (authError) {
-      setError(authError instanceof Error ? authError.message : "Unable to send verification email.");
+      setError(getAuthErrorMessage(authError, "Unable to send verification email. Please try again."));
     } finally {
       setIsSubmitting(false);
     }
@@ -53,7 +54,7 @@ export function VerifyEmailPanel() {
 
       setError("Your email is not verified yet. Open the verification email first, then tap this button again.");
     } catch (authError) {
-      setError(authError instanceof Error ? authError.message : "Unable to check verification status.");
+      setError(getAuthErrorMessage(authError, "Unable to check verification status. Please try again."));
     } finally {
       setIsChecking(false);
     }
