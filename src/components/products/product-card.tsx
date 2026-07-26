@@ -3,7 +3,7 @@
 import { ArrowUpRight } from "lucide-react";
 import { motion, useMotionValue, useReducedMotion, useSpring, useTransform, type MotionStyle } from "framer-motion";
 import Link from "next/link";
-import { useEffect, useState, type CSSProperties, type MouseEvent } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 import { Price } from "@/components/currency/price";
 import type { CatalogProduct } from "@/config/products";
@@ -19,13 +19,10 @@ type ProductCardProps = {
 export function ProductCard({ product, index = 0 }: ProductCardProps) {
   const shouldReduceMotion = useReducedMotion();
   const [isTouchDevice, setIsTouchDevice] = useState(false);
-  const [glitchKey, setGlitchKey] = useState(0);
-  const [isHoverGlitching, setIsHoverGlitching] = useState(false);
-  const [hasScrollGlitched, setHasScrollGlitched] = useState(false);
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
-  const rotateX = useSpring(useTransform(mouseY, [-0.5, 0.5], [8, -8]), { stiffness: 180, damping: 18 });
-  const rotateY = useSpring(useTransform(mouseX, [-0.5, 0.5], [-8, 8]), { stiffness: 180, damping: 18 });
+  const rotateX = useSpring(useTransform(mouseY, [-0.5, 0.5], [3, -3]), { stiffness: 180, damping: 22 });
+  const rotateY = useSpring(useTransform(mouseX, [-0.5, 0.5], [-3, 3]), { stiffness: 180, damping: 22 });
 
   useEffect(() => {
     setIsTouchDevice(window.matchMedia("(pointer: coarse)").matches);
@@ -44,16 +41,6 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
   function handleMouseLeave() {
     mouseX.set(0);
     mouseY.set(0);
-    setIsHoverGlitching(false);
-  }
-
-  function handlePointerEnter() {
-    if (shouldReduceMotion || isTouchDevice) {
-      return;
-    }
-
-    setGlitchKey((current) => current + 1);
-    setIsHoverGlitching(true);
   }
 
   const productHref = product.detailHref ?? `/products/${product.id}`;
@@ -61,40 +48,29 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
   const cardRevealDelay = shouldReduceMotion ? 0 : Math.min(index % 8, 7) * (isTouchDevice ? 0.035 : 0.055);
   const cardStyle = {
     ...(isTouchDevice || shouldReduceMotion ? {} : { rotateX, rotateY, transformStyle: "preserve-3d" as const }),
-    "--card-glitch-image": `url(${product.imageUrl})`,
-    "--card-glitch-delay": `${cardRevealDelay}s`,
-  } as MotionStyle & CSSProperties;
+  } as MotionStyle;
 
   return (
     <motion.article
-      initial={shouldReduceMotion ? { opacity: 1, y: 0, scale: 1, filter: "none" } : { opacity: 0, y: isTouchDevice ? 22 : 34, scale: isTouchDevice ? 0.975 : 0.965, filter: "blur(14px)" }}
-      whileInView={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+      initial={shouldReduceMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: isTouchDevice ? 18 : 24, scale: 0.985 }}
+      whileInView={{ opacity: 1, y: 0, scale: 1 }}
       viewport={{ once: true, margin: isTouchDevice ? "-6%" : "-12%" }}
-      onViewportEnter={() => {
-        if (!shouldReduceMotion) {
-          setHasScrollGlitched(true);
-        }
-      }}
-      transition={{ duration: isTouchDevice ? 0.66 : 0.78, ease: [0.16, 1, 0.3, 1], delay: cardRevealDelay }}
+      transition={{ duration: isTouchDevice ? 0.5 : 0.62, ease: [0.16, 1, 0.3, 1], delay: cardRevealDelay }}
       onMouseMove={handleMouseMove}
-      onPointerEnter={handlePointerEnter}
       onMouseLeave={handleMouseLeave}
       style={cardStyle}
-      className={`product-card product-card-reveal group relative flex h-full min-w-0 flex-col overflow-hidden rounded-[26px] border border-white/12 bg-[linear-gradient(180deg,#0b0a15_0%,#070711_100%)] shadow-2xl shadow-black/35 glitch-${glitchDirection} ${hasScrollGlitched && !shouldReduceMotion ? "is-card-scroll-glitching" : ""}`}
+      className={`product-card group relative flex h-full min-w-0 flex-col overflow-hidden rounded-[24px] border border-white/10 bg-[#0a0a0f] shadow-[0_18px_55px_rgba(0,0,0,0.24)] glitch-${glitchDirection}`}
     >
-      {!shouldReduceMotion ? <span className="product-card-glitch-layer" aria-hidden="true" /> : null}
-      <Link href={productHref} className="product-card-link flex flex-1 flex-col overflow-hidden rounded-[28px]">
+      <Link href={productHref} className="product-card-link flex flex-1 flex-col overflow-hidden rounded-[24px]">
         <div className="product-card-media relative overflow-hidden border-b border-white/10">
-          <motion.div whileHover={isTouchDevice ? undefined : { scale: 1.06 }} transition={{ duration: 0.4, ease: "easeOut" }}>
+          <motion.div whileHover={isTouchDevice ? undefined : { scale: 1.015 }} transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}>
             <ProductVisual
-              key={`${product.id}-${glitchKey}`}
               title={product.title}
               label={product.badge}
               colorway={product.colorway}
               imageUrl={product.imageUrl}
               className="product-card-visual aspect-[4/5]"
               glitchDirection={glitchDirection}
-              isGlitching={isHoverGlitching}
             />
           </motion.div>
           <WishlistButton
@@ -104,7 +80,7 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
             className="absolute right-4 top-4"
           />
         </div>
-        <div className="product-card-body flex flex-1 flex-col bg-[#080812] p-5 pb-6">
+        <div className="product-card-body flex flex-1 flex-col bg-[#090910] p-5 pb-6">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <p className="product-card-brand line-clamp-1 min-h-4 text-xs font-semibold uppercase tracking-[0.22em] text-violet-100/48">{product.brand}</p>
@@ -120,7 +96,7 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
           </div>
         </div>
       </Link>
-      <div className="product-card-action border-t border-white/10 bg-[#080812] px-5 pb-5 pt-4">
+      <div className="product-card-action border-t border-white/8 bg-[#090910] px-5 pb-5 pt-4">
         <AddToCartButton
           product={product}
           className="h-11 w-full"

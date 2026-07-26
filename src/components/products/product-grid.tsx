@@ -2,7 +2,6 @@
 
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import type { CatalogCategory, CatalogProduct } from "@/config/products";
 import { ProductCard } from "@/components/products/product-card";
@@ -82,32 +81,6 @@ export function ProductGrid({ products, categories, initialCategory = "all", ini
   const activeBootLineLabel = bootLineOptions.find((option) => option.value === bootLine)?.label ?? "All boot lines";
   const activeBootTierLabel = bootTierOptions.find((option) => option.value === bootTier)?.label ?? "All boot tiers";
   const activePriceRangeLabel = priceRangeOptions.find((option) => option.value === priceRange)?.label ?? "All prices";
-  const categoryCards = useMemo(
-    () => {
-      const allProductsCard = {
-        id: "all",
-        name: "All Products",
-        slug: "all",
-        description: "Browse every kit, boot, and training piece in the RVSN wall.",
-        count: products.length,
-        imageUrl: products[0]?.imageUrl ?? "/images/hero/hero-football-store.png",
-      };
-
-      return [
-        allProductsCard,
-        ...categories.map((item) => {
-        const categoryProducts = products.filter((product) => product.category === item.slug);
-        return {
-          ...item,
-          count: categoryProducts.length,
-          imageUrl: categoryProducts[0]?.imageUrl ?? "/images/hero/hero-football-store.png",
-        };
-        }),
-      ];
-    },
-    [categories, products],
-  );
-
   const filteredProducts = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
 
@@ -211,61 +184,46 @@ export function ProductGrid({ products, categories, initialCategory = "all", ini
     });
   }
 
-  function selectCategory(nextCategory: string) {
-    setCategory(nextCategory);
-  }
-
   return (
-    <div className="grid min-w-0 gap-8">
-      <motion.div layout className="category-card-rail grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        {categoryCards.map((item) => {
-          const isActive = category === item.slug;
+    <div className="grid min-w-0 gap-5">
+      <motion.div layout className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Product categories">
+        {categoryOptions.map((item) => {
+          const isActive = category === item.value;
 
           return (
             <button
-              key={item.slug}
+              key={item.value}
               type="button"
-              onClick={() => selectCategory(item.slug)}
-              className="category-card group relative min-h-[154px] overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.055] p-4 text-left shadow-2xl shadow-black/20 backdrop-blur-xl transition hover:border-violet-200/36 hover:bg-white/[0.085]"
+              onClick={() => setCategory(item.value)}
+              className={cn(
+                "shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition",
+                isActive
+                  ? "border-white bg-white text-black shadow-[0_14px_34px_rgba(255,255,255,0.12)]"
+                  : "border-white/10 bg-white/[0.045] text-violet-100/64 hover:border-white/22 hover:bg-white/[0.075] hover:text-white",
+              )}
             >
-              <span className={cn("absolute inset-0 opacity-35 transition duration-500 group-hover:scale-105 group-hover:opacity-50", isActive && "opacity-55")}>
-                <Image src={item.imageUrl} alt="" fill sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw" className="object-cover" />
-              </span>
-              <span className="absolute inset-0 bg-[linear-gradient(135deg,rgba(3,2,8,0.94),rgba(20,10,38,0.72)_48%,rgba(3,2,8,0.92))]" />
-              <span className="relative z-10 flex h-full flex-col justify-between">
-                <span className="flex items-center justify-between gap-3">
-                  <span className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-violet-100/48">Category</span>
-                  <span className={cn("rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-xs font-bold text-white/72", isActive && "border-violet-100/30 bg-violet-200 text-black")}>
-                    {isActive ? "Selected" : item.count}
-                  </span>
-                </span>
-                <span>
-                  <span className="block text-2xl font-normal leading-[0.98] tracking-[-0.06em] text-white">{item.name}</span>
-                  <span className="category-card-description mt-3 block text-sm font-semibold leading-5 text-violet-100/56">{item.description}</span>
-                </span>
-              </span>
-              {isActive ? <span className="absolute inset-x-4 bottom-3 h-0.5 rounded-full bg-violet-200 shadow-[0_0_22px_rgba(196,181,253,0.5)]" /> : null}
+              {item.label}
             </button>
           );
         })}
       </motion.div>
 
       <div className="grid min-w-0 gap-8 lg:grid-cols-[280px_1fr]">
-      <div className="sticky top-[72px] z-20 w-full rounded-[22px] border border-white/10 bg-[#090411]/82 p-2 shadow-[0_22px_70px_rgba(0,0,0,0.42)] backdrop-blur-2xl sm:p-2.5 lg:hidden">
+      <div className="sticky top-[72px] z-20 w-full rounded-[22px] border border-white/10 bg-black/70 p-2 shadow-[0_18px_50px_rgba(0,0,0,0.32)] backdrop-blur-2xl sm:p-2.5 lg:hidden">
         <div className="flex items-center gap-2">
-          <div className="flex h-12 min-w-0 flex-1 items-center gap-3 rounded-[18px] border border-white/12 bg-white/8 px-3 shadow-[inset_0_1px_rgba(255,255,255,0.1)] transition focus-within:border-violet-200/70 focus-within:ring-4 focus-within:ring-violet-300/10">
-            <Search size={16} className="shrink-0 text-violet-100/70" />
+          <div className="flex h-12 min-w-0 flex-1 items-center gap-3 rounded-full border border-white/10 bg-white/[0.055] px-4 transition focus-within:border-white/24 focus-within:bg-white/[0.075]">
+            <Search size={16} className="shrink-0 text-white/62" />
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search gear..."
-              className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-white outline-none placeholder:text-violet-100/42"
+              className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-white outline-none placeholder:text-white/36"
             />
           </div>
           <button
             type="button"
             onClick={() => setIsMobileFiltersOpen(true)}
-            className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-[18px] bg-white px-3 text-sm font-extrabold text-black shadow-[0_14px_38px_rgba(124,58,237,0.24)] sm:px-4"
+            className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-full bg-white px-4 text-sm font-bold text-black shadow-[0_14px_34px_rgba(255,255,255,0.08)]"
             aria-label="Open product filters"
           >
             <SlidersHorizontal size={16} />
@@ -274,7 +232,7 @@ export function ProductGrid({ products, categories, initialCategory = "all", ini
         </div>
         <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {[activeCategoryLabel, activeBrandLabel, isBootCategory ? activeBootLineLabel : "", isBootCategory ? activeBootTierLabel : "", activePriceRangeLabel, activeSortLabel].filter(Boolean).map((label) => (
-            <span key={label} className="shrink-0 rounded-full border border-white/10 bg-white/8 px-3 py-1.5 text-xs font-bold text-violet-100/70">
+            <span key={label} className="shrink-0 rounded-full border border-white/8 bg-white/[0.045] px-3 py-1.5 text-xs font-semibold text-white/56">
               {label}
             </span>
           ))}
@@ -285,18 +243,18 @@ export function ProductGrid({ products, categories, initialCategory = "all", ini
         initial={{ opacity: 0, x: -18 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="hidden h-fit rounded-[28px] border border-white/10 bg-white/[0.055] p-5 shadow-2xl shadow-black/25 backdrop-blur-xl lg:block"
+        className="hidden h-fit rounded-[28px] border border-white/10 bg-white/[0.035] p-5 shadow-[0_18px_55px_rgba(0,0,0,0.18)] backdrop-blur-xl lg:block"
       >
         <div className="flex items-center gap-2 text-white">
-          <SlidersHorizontal size={18} className="text-violet-200" />
+          <SlidersHorizontal size={18} className="text-white/70" />
           <h2 className="text-lg font-normal tracking-[-0.03em] text-white">Filters</h2>
         </div>
 
         <label className="mt-5 block text-xs font-semibold uppercase tracking-[0.2em] text-violet-100/45" htmlFor="product-search">
           Search
         </label>
-        <div className="mt-2 flex h-12 items-center gap-3 rounded-[18px] border border-white/12 bg-white/8 px-3 shadow-[inset_0_1px_rgba(255,255,255,0.1)] transition focus-within:border-violet-200/70 focus-within:bg-black/24 focus-within:ring-4 focus-within:ring-violet-300/10">
-          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-white/8 text-violet-100/70">
+        <div className="mt-2 flex h-12 items-center gap-3 rounded-full border border-white/10 bg-white/[0.045] px-3 transition focus-within:border-white/24 focus-within:bg-white/[0.07]">
+          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-white/[0.045] text-white/64">
             <Search size={15} />
           </span>
           <input
@@ -304,7 +262,7 @@ export function ProductGrid({ products, categories, initialCategory = "all", ini
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Jersey, boots..."
-            className="w-full bg-transparent text-sm font-semibold text-white outline-none placeholder:text-violet-100/40"
+            className="w-full bg-transparent text-sm font-semibold text-white outline-none placeholder:text-white/36"
           />
         </div>
 
@@ -385,8 +343,7 @@ export function ProductGrid({ products, categories, initialCategory = "all", ini
 
       <div className="min-w-0">
         <div className="mb-5 flex items-center justify-between gap-4 pt-1 lg:pt-0">
-          <p className="text-sm font-semibold text-violet-100/55">{filteredProducts.length} products</p>
-          <p className="hidden text-xs uppercase tracking-[0.22em] text-violet-100/38 sm:block">Hover for 3D tilt</p>
+          <p className="text-sm font-semibold text-white/52">{filteredProducts.length} products</p>
         </div>
         {syncMessage ? (
           <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800">

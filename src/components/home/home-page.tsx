@@ -15,16 +15,19 @@ const approachStatement = "We combine football taste, product clarity and cinema
 const mobileHeroSlideDuration = 7800;
 const mobileHeroSlides = [
   {
-    title: "Blackout training",
-    image: "/images/hero/mobile-hero-training-kit.png",
+    title: "Purple speed",
+    image: "/images/hero/mobile-hero-purple-boots.png",
+    position: "center",
   },
   {
-    title: "Jersey wall",
-    image: "/images/hero/mobile-hero-jersey-wall.png",
+    title: "For the players",
+    image: "/images/hero/mobile-hero-player-socks.jpeg",
+    position: "center",
   },
   {
-    title: "Speed boots",
-    image: "/images/hero/mobile-hero-speed-boots.png",
+    title: "Rocha jersey",
+    image: "/images/hero/mobile-hero-rocha-jersey.png",
+    position: "center",
   },
 ];
 
@@ -111,7 +114,7 @@ const projects = [
   {
     title: "Night Derby Jersey",
     href: "/products/night-derby-jersey",
-    image: "/images/products/night-derby-jersey.avif",
+    image: "/images/products/night-derby-purple-pantera.jpeg",
     description:
       "An away-day jersey system with sharp contrast, club attitude, and enough polish to move from pitch to street.",
     details: [
@@ -205,23 +208,23 @@ export function HomePage() {
     <main className="aww-page text-white">
       <section id="hero" className="aww-hero">
         <div className="aww-hero-bg" aria-hidden="true" />
-        <MobileHeroCarousel />
         <motion.div
-          className="aww-hero-mark"
-          initial={{ opacity: 0, scale: 0.86, rotateX: 18 }}
-          animate={{ opacity: 1, scale: 1, rotateX: 0 }}
-          transition={{ duration: 1.3, ease, delay: 0.25 }}
+          className="aww-hero-full-image"
+          initial={{ opacity: 0, scale: 1.025 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 1.25, ease, delay: 0.12 }}
+          aria-hidden="true"
         >
           <Image
-            src="/images/hero/rvsn-kit-hero.png"
-            alt="RVSN black and purple football kit with boots and ball"
+            src="/images/hero/rvsn-hero-full-background.png"
+            alt=""
             fill
             priority
-            sizes="(min-width: 1024px) 48vw, 0px"
-            className="object-contain"
+            sizes="100vw"
+            className="object-cover"
           />
-          <span className="aww-hero-glitch-layer" aria-hidden="true" />
         </motion.div>
+        <MobileHeroCarousel />
 
         <div className="aww-hero-copy">
           <motion.p custom={0} variants={lineReveal} initial="hidden" animate="show" className="aww-eyebrow overflow-hidden">
@@ -238,13 +241,12 @@ export function HomePage() {
               ),
             )}
           </h1>
+          <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, delay: 1.05, ease }}>
+            <Link href="/products" className="aww-cta aww-hero-cta">
+              Shop the drop <span />
+            </Link>
+          </motion.div>
         </div>
-
-        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, delay: 1.05, ease }}>
-          <Link href="/products" className="aww-cta aww-hero-cta">
-            Shop the drop <span />
-          </Link>
-        </motion.div>
         <a className="aww-scroll-cue" href="#services">
           Scroll
         </a>
@@ -454,7 +456,7 @@ function MobileHeroCarousel() {
             aria-hidden={activeIndex !== index}
           >
             <motion.div className="aww-mobile-hero-image-wrap" style={{ y: imageScrollY, scale: imageScrollScale }}>
-              <Image src={slide.image} alt={slide.title} fill sizes="100vw" className="object-cover object-center" priority={index === 0} />
+              <Image src={slide.image} alt={slide.title} fill sizes="100vw" className="object-cover" style={{ objectPosition: slide.position }} priority={index === 0} />
             </motion.div>
             <motion.div className="aww-mobile-slide-content" style={{ y: contentScrollY }}>
               <span>
@@ -509,8 +511,6 @@ function ScrollRevealWord({ word, index, total, progress }: { word: string; inde
 }
 
 function ServiceCard({ tile, index }: { tile: (typeof serviceTiles)[number]; index: number }) {
-  const glitchDirection = getGlitchDirection(index);
-
   return (
     <motion.article
       variants={reveal}
@@ -518,12 +518,10 @@ function ServiceCard({ tile, index }: { tile: (typeof serviceTiles)[number]; ind
       whileInView="show"
       viewport={{ once: true, margin: "-8%" }}
       transition={{ delay: index * 0.07 }}
-      className={`aww-service-card scroll-glitch-media glitch-${glitchDirection}`}
-      style={{ "--scroll-glitch-image": `url(${tile.image})` } as CSSProperties}
+      className="aww-service-card"
     >
       <Link href={tile.href} className="block h-full">
         <Image src={tile.image} alt={tile.title} fill sizes="(min-width: 1280px) 25vw, (min-width: 700px) 50vw, 82vw" className="object-cover" />
-        <ScrollGlitchLayer />
         <div className="aww-card-shade" />
         <h2>
           {tile.title}
@@ -542,7 +540,6 @@ function ServiceCard({ tile, index }: { tile: (typeof serviceTiles)[number]; ind
 }
 
 function ProjectCard({ project, index }: { project: (typeof projects)[number]; index: number }) {
-  const glitchDirection = getGlitchDirection(index + 2);
   const cardRef = useRef<HTMLElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const buttonPositionRef = useRef({ x: 0, y: 0 });
@@ -616,13 +613,11 @@ function ProjectCard({ project, index }: { project: (typeof projects)[number]; i
     >
       <Link href={project.href} className="aww-project-link">
         <motion.div
-          className={`aww-project-media scroll-glitch-media glitch-${glitchDirection}`}
-          style={{ "--scroll-glitch-image": `url(${project.image})` } as CSSProperties}
+          className="aww-project-media"
           initial={false}
           viewport={{ once: true, margin: "-12%" }}
         >
           <Image src={project.image} alt={project.title} fill sizes="(min-width: 1024px) 42vw, 100vw" className="object-cover" />
-          <ScrollGlitchLayer />
         </motion.div>
         <span className="aww-project-button">
           See the product <ArrowRight size={14} />
@@ -677,8 +672,6 @@ function ShowcaseGrid({ items }: { items: ShowcaseItem[] }) {
 }
 
 function InsightCard({ item, index }: { item: (typeof insights)[number]; index: number }) {
-  const glitchDirection = getGlitchDirection(index + 4);
-
   return (
     <motion.article
       variants={reveal}
@@ -694,13 +687,11 @@ function InsightCard({ item, index }: { item: (typeof insights)[number]; index: 
           <time>{item.date}</time>
         </div>
         <motion.div
-          className={`aww-news-image scroll-glitch-media glitch-${glitchDirection}`}
-          style={{ "--scroll-glitch-image": `url(${item.image})` } as CSSProperties}
+          className="aww-news-image"
           initial={false}
           viewport={{ once: true, margin: "-12%" }}
         >
           <Image src={item.image} alt={item.title} fill sizes="(min-width: 1024px) 28vw, 100vw" className="object-cover" />
-          <ScrollGlitchLayer />
         </motion.div>
         <span className="aww-news-arrow" aria-hidden="true">
           <ArrowRight size={18} />
@@ -708,26 +699,4 @@ function InsightCard({ item, index }: { item: (typeof insights)[number]; index: 
       </Link>
     </motion.article>
   );
-}
-
-function ScrollGlitchLayer() {
-  return (
-    <motion.span
-      className="scroll-glitch-layer"
-      aria-hidden="true"
-      initial={{ opacity: 0, x: 0, clipPath: "inset(0 0 0 0)" }}
-      whileInView={{
-        opacity: [0, 0.78, 0.54, 0.68, 0.38, 0],
-        x: ["0px", "var(--glitch-x-1)", "var(--glitch-x-2)", "var(--glitch-x-3)", "var(--glitch-x-4)", "0px"],
-        y: ["0px", "var(--glitch-y-1)", "var(--glitch-y-2)", "var(--glitch-y-3)", "var(--glitch-y-4)", "0px"],
-        clipPath: ["inset(0 0 0 0)", "inset(8% 0 62% 0)", "inset(54% 0 12% 0)", "inset(26% 0 38% 0)", "inset(70% 0 6% 0)", "inset(0 0 0 0)"],
-      }}
-      viewport={{ once: true, margin: "-14%" }}
-      transition={{ duration: 1.28, ease: "linear", times: [0, 0.14, 0.3, 0.48, 0.68, 1] }}
-    />
-  );
-}
-
-function getGlitchDirection(index: number) {
-  return ["left", "right", "up", "down", "diag"][index % 5];
 }

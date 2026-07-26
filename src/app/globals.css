@@ -240,10 +240,9 @@ a {
   isolation: isolate;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 8%, rgba(139, 92, 246, 0.16), transparent 31rem),
-    radial-gradient(circle at 10% 36%, rgba(70, 28, 144, 0.16), transparent 26rem),
-    radial-gradient(circle at 90% 62%, rgba(76, 29, 149, 0.14), transparent 28rem),
-    linear-gradient(180deg, #020105 0%, #05030b 42%, #070412 74%, #030207 100%);
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.055), transparent 34rem),
+    radial-gradient(circle at 85% 22%, rgba(139, 92, 246, 0.075), transparent 30rem),
+    linear-gradient(180deg, #000 0%, #050507 48%, #020204 100%);
 }
 
 .product-page-shell::before {
@@ -253,8 +252,8 @@ a {
   z-index: -1;
   pointer-events: none;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.026), transparent 18rem),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.018), transparent 18%, transparent 82%, rgba(255, 255, 255, 0.014));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 18rem),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.012), transparent 18%, transparent 82%, rgba(255, 255, 255, 0.01));
 }
 
 .purple-section {
@@ -783,37 +782,22 @@ a {
   animation-delay: var(--card-glitch-delay, 0s);
 }
 
-.product-card:hover .glitch-left .product-glitch-layer,
-.product-visual.glitch-left:hover .product-glitch-layer,
-.product-visual.glitch-left.is-hover-glitching .product-glitch-layer,
 .product-visual.glitch-left.is-scroll-glitching .product-glitch-layer {
   animation: rvsnProductGlitch 980ms steps(1, end) both;
 }
 
-.product-card:hover .glitch-right .product-glitch-layer,
-.product-visual.glitch-right:hover .product-glitch-layer,
-.product-visual.glitch-right.is-hover-glitching .product-glitch-layer,
 .product-visual.glitch-right.is-scroll-glitching .product-glitch-layer {
   animation: rvsnProductGlitchRight 980ms steps(1, end) both;
 }
 
-.product-card:hover .glitch-up .product-glitch-layer,
-.product-visual.glitch-up:hover .product-glitch-layer,
-.product-visual.glitch-up.is-hover-glitching .product-glitch-layer,
 .product-visual.glitch-up.is-scroll-glitching .product-glitch-layer {
   animation: rvsnProductGlitchUp 980ms steps(1, end) both;
 }
 
-.product-card:hover .glitch-down .product-glitch-layer,
-.product-visual.glitch-down:hover .product-glitch-layer,
-.product-visual.glitch-down.is-hover-glitching .product-glitch-layer,
 .product-visual.glitch-down.is-scroll-glitching .product-glitch-layer {
   animation: rvsnProductGlitchDown 980ms steps(1, end) both;
 }
 
-.product-card:hover .glitch-diag .product-glitch-layer,
-.product-visual.glitch-diag:hover .product-glitch-layer,
-.product-visual.glitch-diag.is-hover-glitching .product-glitch-layer,
 .product-visual.glitch-diag.is-scroll-glitching .product-glitch-layer {
   animation: rvsnProductGlitchDiag 980ms steps(1, end) both;
 }
@@ -834,7 +818,6 @@ a {
   mix-blend-mode: screen;
 }
 
-.scroll-glitch-media:hover .scroll-glitch-layer,
 .scroll-glitch-media.glitch-left .scroll-glitch-layer {
   --glitch-x-1: -18px;
   --glitch-x-2: 20px;
@@ -890,19 +873,8 @@ a {
   --glitch-y-4: -6px;
 }
 
-.scroll-glitch-media:hover .scroll-glitch-layer {
-  animation: rvsnScrollGlitchHover 1.08s steps(1, end) both;
-}
-
 @media (hover: none) {
-  .scroll-glitch-media:hover .scroll-glitch-layer,
   .product-visual:hover .product-glitch-layer {
-    animation: none;
-  }
-}
-
-@media (hover: none) {
-  .product-card:hover .product-glitch-layer {
     animation: none;
   }
 }
@@ -1057,35 +1029,67 @@ a {
     linear-gradient(180deg, #000 0%, #020107 68%, #091239 100%);
 }
 
+.aww-hero-full-image {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  opacity: 0.92;
+}
+
+.aww-hero-full-image::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.82) 24%, rgba(0, 0, 0, 0.38) 52%, rgba(0, 0, 0, 0.16) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.56) 0%, transparent 32%, rgba(0, 0, 0, 0.72) 100%);
+  pointer-events: none;
+}
+
+.aww-hero-full-image img {
+  object-position: center;
+}
+
 .aww-hero-mark {
   position: absolute;
   display: grid;
   place-items: center;
-  left: 48vw;
-  top: 8vh;
-  width: min(42vw, 600px);
-  height: min(72vh, 760px);
+  left: 42vw;
+  top: 9vh;
+  width: min(58vw, 1120px);
+  height: min(62vh, 620px);
   perspective: 1100px;
+  opacity: 0.9;
   filter:
-    drop-shadow(0 42px 42px rgba(0, 0, 0, 0.72))
-    drop-shadow(0 0 42px rgba(124, 58, 237, 0.22));
-  animation: awwFloatMark 6s ease-in-out infinite;
+    drop-shadow(0 42px 48px rgba(0, 0, 0, 0.68))
+    drop-shadow(0 0 36px rgba(124, 58, 237, 0.16));
+  animation: awwFloatMark 8s ease-in-out infinite;
+  mask-image:
+    linear-gradient(90deg, transparent 0%, #000 13%, #000 82%, transparent 100%),
+    linear-gradient(180deg, transparent 0%, #000 12%, #000 76%, transparent 100%);
+  mask-composite: intersect;
+  -webkit-mask-image:
+    linear-gradient(90deg, transparent 0%, #000 13%, #000 82%, transparent 100%),
+    linear-gradient(180deg, transparent 0%, #000 12%, #000 76%, transparent 100%);
+  -webkit-mask-composite: source-in;
 }
 
 .aww-hero-mark::before {
   content: "";
   position: absolute;
-  inset: 14% 4% 8%;
+  inset: 18% 10% 4%;
   z-index: -1;
   border-radius: 999px;
   background:
-    radial-gradient(circle at 50% 42%, rgba(168, 85, 247, 0.32), transparent 58%),
-    radial-gradient(circle at 50% 72%, rgba(59, 130, 246, 0.16), transparent 54%);
-  filter: blur(24px);
+    radial-gradient(circle at 50% 46%, rgba(168, 85, 247, 0.24), transparent 62%),
+    radial-gradient(circle at 50% 78%, rgba(59, 130, 246, 0.1), transparent 58%);
+  filter: blur(34px);
 }
 
 .aww-hero-mark img {
-  transform: rotateX(5deg) rotateY(-8deg);
+  transform: scale(1.04);
   will-change: transform;
 }
 
@@ -1105,8 +1109,9 @@ a {
 
 .aww-hero-copy {
   position: absolute;
+  z-index: 2;
   left: 5vw;
-  bottom: 23vh;
+  top: clamp(138px, 17vh, 190px);
   width: min(960px, 88vw);
 }
 
@@ -1193,9 +1198,7 @@ a {
 }
 
 .aww-hero-cta {
-  position: absolute;
-  right: 5vw;
-  bottom: 23vh;
+  margin-top: clamp(34px, 4vw, 68px);
 }
 
 .aww-scroll-cue {
@@ -1988,6 +1991,10 @@ a {
     background: #111;
   }
 
+  .aww-hero-full-image {
+    display: none;
+  }
+
   .aww-hero-bg {
     background:
       radial-gradient(circle at 72% 24%, rgba(124, 58, 237, 0.14), transparent 18rem),
@@ -2091,7 +2098,7 @@ a {
   }
 
   .aww-mobile-slide-label {
-    max-width: min(82vw, 420px);
+    max-width: min(68vw, 340px);
     color: #fff;
     font-size: clamp(1.55rem, 7.4vw, 3.35rem);
     font-weight: 400;
@@ -2158,7 +2165,11 @@ a {
   }
 
   .aww-scroll-cue {
-    bottom: 54px;
+    left: auto;
+    right: clamp(48px, 12vw, 72px);
+    bottom: 55px;
+    z-index: 6;
+    transform: none;
     font-size: 12px;
   }
 
@@ -2591,14 +2602,24 @@ a {
 
   .ft-brand-link {
     min-height: 52px;
-    padding: 6px;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
   }
 
   .ft-brand-mark {
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
     font-size: 15px;
+  }
+
+  .ft-brand-mark::before {
+    display: none;
   }
 
   .ft-brand-word {
@@ -2796,6 +2817,172 @@ a {
 
   .product-card-title {
     font-size: 0.86rem !important;
+  }
+}
+
+.aww-page {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.055), transparent 34rem),
+    radial-gradient(circle at 82% 18%, rgba(124, 58, 237, 0.08), transparent 32rem),
+    linear-gradient(180deg, #000 0%, #050507 48%, #020204 100%);
+}
+
+.aww-hero {
+  min-height: 92svh;
+  background: #000;
+}
+
+.aww-hero-bg {
+  background:
+    radial-gradient(circle at 58% 24%, rgba(124, 58, 237, 0.1), transparent 32rem),
+    linear-gradient(180deg, #000 0%, #050507 76%, #080812 100%);
+}
+
+.aww-hero-mark {
+  left: 42vw;
+  top: 9vh;
+  width: min(58vw, 1120px);
+  height: min(62vh, 620px);
+  opacity: 0.9;
+}
+
+.aww-hero-mark::before {
+  opacity: 0.42;
+  filter: blur(42px);
+}
+
+.aww-hero-mark img {
+  transform: scale(1.04);
+}
+
+.aww-hero-cta {
+  margin-top: clamp(34px, 4vw, 68px);
+}
+
+.aww-hero-title {
+  max-width: 980px;
+  font-size: clamp(3.2rem, 5vw, 6.5rem);
+  letter-spacing: -0.075em;
+}
+
+.aww-eyebrow,
+.aww-section-eyebrow {
+  color: rgba(255, 255, 255, 0.48);
+  letter-spacing: 0.18em;
+}
+
+.aww-cta {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.92);
+  color: #000;
+  box-shadow: 0 16px 42px rgba(255, 255, 255, 0.08);
+}
+
+.aww-cta:hover {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: #fff;
+  transform: translateY(-1px);
+}
+
+.aww-light-section,
+.aww-dark-section,
+.aww-testimonials,
+.aww-news,
+.aww-contact {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.035), transparent 30rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.012), rgba(255, 255, 255, 0));
+}
+
+.aww-service-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.2);
+}
+
+.aww-service-card img,
+.aww-project-media img,
+.aww-news-image img {
+  transition:
+    transform 900ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 900ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.aww-service-card:hover {
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.24);
+}
+
+.aww-service-card:hover img {
+  transform: scale(1.025);
+  filter: brightness(0.9) saturate(0.92);
+}
+
+.aww-service-card:hover .aww-card-shade {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.22), transparent 38%),
+    linear-gradient(0deg, rgba(0, 0, 0, 0.46), transparent 56%);
+  backdrop-filter: none;
+}
+
+.aww-service-card li {
+  background: rgba(255, 255, 255, 0.86);
+  color: #111;
+  font-weight: 600;
+}
+
+.aww-approach-continuation {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.08), transparent 38rem),
+    linear-gradient(180deg, #050507 0%, #020204 100%) !important;
+}
+
+.aww-project-card,
+.aww-news-card,
+.aww-testimonial-shell,
+.aww-contact {
+  border-color: rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.018)),
+    rgba(8, 8, 10, 0.72);
+  box-shadow: 0 18px 65px rgba(0, 0, 0, 0.22);
+}
+
+.aww-project-card:hover,
+.aww-news-card:hover {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.022)),
+    rgba(10, 10, 12, 0.8);
+  box-shadow: 0 22px 75px rgba(0, 0, 0, 0.28);
+}
+
+.aww-project-card:hover img,
+.aww-news-card:hover img {
+  transform: scale(1.02);
+  filter: brightness(0.94) saturate(1.02);
+}
+
+.aww-news-card:hover .aww-news-arrow {
+  transform: scale(1.02);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.aww-quote-form input,
+.aww-quote-form textarea {
+  border-radius: 14px;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+@media (max-width: 900px) {
+  .aww-hero-bg {
+    background:
+      radial-gradient(circle at 50% 16%, rgba(255, 255, 255, 0.06), transparent 18rem),
+      linear-gradient(180deg, #070707 0%, #050506 100%);
+  }
+
+  .aww-light-section:has(.aww-service-grid) {
+    background:
+      radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.08), transparent 20rem),
+      linear-gradient(180deg, #050507 0%, #020204 100%);
   }
 }
 
