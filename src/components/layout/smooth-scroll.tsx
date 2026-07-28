@@ -1,9 +1,13 @@
 "use client";
 
 import Lenis from "lenis";
-import { useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 
 export function SmoothScroll() {
+  const pathname = usePathname();
+  const lenisRef = useRef<Lenis | null>(null);
+
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -24,6 +28,7 @@ export function SmoothScroll() {
       smoothWheel: true,
       wheelMultiplier: 0.9,
     });
+    lenisRef.current = lenis;
 
     let frameId = 0;
 
@@ -36,9 +41,15 @@ export function SmoothScroll() {
 
     return () => {
       window.cancelAnimationFrame(frameId);
+      lenisRef.current = null;
       lenis.destroy();
     };
   }, []);
+
+  useEffect(() => {
+    lenisRef.current?.scrollTo(0, { immediate: true, force: true });
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [pathname]);
 
   return null;
 }

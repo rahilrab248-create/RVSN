@@ -51,7 +51,7 @@ export function LoadingScreen() {
       className={isHidden ? "aww-loader is-hidden" : "aww-loader"}
       style={
         {
-          "--loader-fill": `${count}%`,
+          "--loader-scale": count / 100,
           "--loader-mark-y": `${count * -0.08}px`,
         } as CSSProperties
       }

@@ -26,6 +26,7 @@ export function Navbar() {
   const [currentHash, setCurrentHash] = useState("");
   const [navHighlight, setNavHighlight] = useState({ x: 0, width: 0, visible: false });
   const [isBrandCompact, setIsBrandCompact] = useState(false);
+  const [isShopDropdownSuppressed, setIsShopDropdownSuppressed] = useState(false);
   const navLinkRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const router = useRouter();
   const pathname = usePathname();
@@ -143,7 +144,10 @@ export function Navbar() {
 
         <div
           className="aww-nav-pill pointer-events-auto mx-auto hidden h-16 w-full max-w-[865px] items-center justify-center gap-2 rounded-[18px] border border-white/10 px-2 shadow-[inset_0_1px_rgba(255,255,255,0.12)] backdrop-blur-2xl lg:flex"
-          onPointerLeave={() => moveNavHighlight(activeNavHref, Boolean(activeNavHref))}
+          onPointerLeave={() => {
+            setIsShopDropdownSuppressed(false);
+            moveNavHighlight(activeNavHref, Boolean(activeNavHref));
+          }}
         >
           <span
             className="aww-nav-highlight"
@@ -179,11 +183,19 @@ export function Navbar() {
                 <span className="relative z-10" style={homeReadableStyle}>{item.label}</span>
               </a>
                 {isShopItem ? (
-                  <div className="aww-shop-dropdown" aria-label="Shop categories">
+                  <div
+                    className={cn("aww-shop-dropdown", isShopDropdownSuppressed && "is-suppressed")}
+                    aria-label="Shop categories"
+                  >
                     <div className="aww-shop-dropdown-inner">
                       <p>Shop football</p>
                       {shopDropdownItems.map((dropdownItem) => (
-                        <Link key={dropdownItem.href} href={dropdownItem.href} className="aww-shop-dropdown-link">
+                        <Link
+                          key={dropdownItem.href}
+                          href={dropdownItem.href}
+                          className="aww-shop-dropdown-link"
+                          onClick={() => setIsShopDropdownSuppressed(true)}
+                        >
                           <span>{dropdownItem.label}</span>
                           <span aria-hidden="true">-&gt;</span>
                         </Link>

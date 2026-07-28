@@ -107,9 +107,9 @@ html.lenis body {
 }
 
 .dark .pitch-grid {
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+  background:
+    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.055), transparent 28rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0));
 }
 
 .dark :is(.bg-white, .bg-slate-50, .bg-slate-100) {
@@ -220,10 +220,9 @@ a {
 }
 
 .pitch-grid {
-  background-image:
-    linear-gradient(rgba(15, 23, 42, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(15, 23, 42, 0.05) 1px, transparent 1px);
-  background-size: 64px 64px;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(15, 23, 42, 0.055), transparent 30rem),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.025), rgba(15, 23, 42, 0));
 }
 
 .glass-panel {
@@ -454,6 +453,19 @@ a {
   transform: translateX(-50%) translateY(0) scale(1);
 }
 
+.aww-shop-dropdown.is-suppressed {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(-8px) scale(0.985);
+}
+
+.aww-nav-shop-group:hover .aww-shop-dropdown.is-suppressed,
+.aww-nav-shop-group:focus-within .aww-shop-dropdown.is-suppressed {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(-8px) scale(0.985);
+}
+
 .aww-shop-dropdown-inner {
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -480,6 +492,7 @@ a {
 }
 
 .aww-shop-dropdown-link {
+  position: relative;
   display: flex;
   min-height: 46px;
   align-items: center;
@@ -490,18 +503,59 @@ a {
   color: rgba(255, 255, 255, 0.9);
   font-size: 14px;
   font-weight: 500;
+  overflow: hidden;
   transition:
-    background 260ms ease,
     color 260ms ease,
-    transform 360ms cubic-bezier(0.16, 1, 0.3, 1);
+    opacity 260ms ease,
+    transform 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.aww-shop-dropdown-link::before {
+  content: "";
+  position: absolute;
+  left: 13px;
+  right: 13px;
+  bottom: 8px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.88), rgba(196, 181, 253, 0.55), transparent);
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition:
+    opacity 320ms ease,
+    transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.aww-shop-dropdown-link::after {
+  content: "";
+  position: absolute;
+  inset: -80% auto -80% -38%;
+  width: 32%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+  opacity: 0;
+  transform: translateX(0);
+  transition:
+    opacity 420ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 900ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .aww-shop-dropdown-link:hover,
 .aww-shop-dropdown-link:focus-visible {
-  background: transparent;
   color: #fff;
   outline: none;
-  transform: translateX(2px);
+  transform: translateX(4px);
+}
+
+.aww-shop-dropdown-link:hover::before,
+.aww-shop-dropdown-link:focus-visible::before {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.aww-shop-dropdown-link:hover::after,
+.aww-shop-dropdown-link:focus-visible::after {
+  opacity: 1;
+  transform: translateX(520%);
 }
 
 .aww-shop-dropdown-link span:last-child {
@@ -513,7 +567,7 @@ a {
 .aww-shop-dropdown-link:hover span:last-child,
 .aww-shop-dropdown-link:focus-visible span:last-child {
   color: rgba(255, 255, 255, 0.82);
-  transform: translateX(2px);
+  transform: translateX(4px);
 }
 
 .admin-tab-pill {
@@ -753,10 +807,8 @@ a {
   background:
     linear-gradient(90deg, transparent 0 49.7%, rgba(215, 255, 47, 0.25) 49.8% 50.2%, transparent 50.3%),
     radial-gradient(circle at 50% 48%, transparent 0 8rem, rgba(215, 255, 47, 0.18) 8.05rem 8.15rem, transparent 8.2rem),
-    linear-gradient(rgba(215, 255, 47, 0.12) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(215, 255, 47, 0.1) 1px, transparent 1px),
+    radial-gradient(ellipse at 50% 82%, rgba(215, 255, 47, 0.11), transparent 24rem),
     linear-gradient(180deg, transparent, rgba(37, 208, 165, 0.08));
-  background-size: auto, auto, 72px 72px, 72px 72px, auto;
   mask-image: linear-gradient(180deg, transparent, #000 22%, #000 100%);
   animation: pitchDrift 18s linear infinite;
 }
@@ -1027,10 +1079,11 @@ a {
 .aww-loader::after {
   content: "";
   position: absolute;
-  inset: auto 0 0;
-  height: var(--loader-fill, 0%);
+  inset: 0;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(124, 58, 237, 0.04));
-  transition: height 120ms linear;
+  transform: scaleY(var(--loader-scale, 0));
+  transform-origin: bottom;
+  transition: transform 120ms linear;
 }
 
 .aww-loader span {
@@ -1490,13 +1543,13 @@ a {
 
 .aww-approach {
   position: relative;
-  min-height: 178vh;
-  overflow: visible;
+  min-height: auto;
+  overflow: hidden;
   background:
     radial-gradient(circle at 50% 58%, rgba(124, 58, 237, 0.34), transparent 44rem),
     radial-gradient(circle at 16% 44%, rgba(59, 130, 246, 0.16), transparent 34rem),
     linear-gradient(180deg, #080413 0%, #05020d 58%, #020106 100%);
-  padding: 40px 0 0;
+  padding: clamp(76px, 10vw, 140px) 0 clamp(86px, 10vw, 150px);
 }
 
 .aww-approach-copy {
@@ -1530,18 +1583,17 @@ a {
   will-change: opacity, transform, filter;
 }
 
-.aww-collage {
-  position: sticky;
-  top: 0;
-  width: min(90vw, 1700px);
-  height: 54vh;
-  margin: clamp(48px, 6vw, 72px) auto 0;
-  overflow: hidden;
-  border-radius: var(--aww-radius);
-  background: #111;
+.aww-approach-gallery {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.72fr);
+  grid-template-rows: 1fr 0.92fr;
+  gap: clamp(12px, 1.3vw, 20px);
+  width: min(90vw, 1480px);
+  height: min(72vh, 780px);
+  margin: clamp(52px, 6.2vw, 92px) auto 0;
   transform-origin: center;
-  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.22);
-  will-change: width, height, border-radius, transform;
+  will-change: transform;
 }
 
 .aww-approach + .aww-dark-section {
@@ -1557,23 +1609,168 @@ a {
     linear-gradient(180deg, #020106 0%, #05020d 44%, #080413 100%) !important;
 }
 
-.aww-collage::after {
+.aww-approach-gallery::before {
   content: "";
   position: absolute;
-  inset: 0;
+  inset: 12% 8% -8%;
+  z-index: -1;
   background:
-    radial-gradient(circle at 50% 42%, rgba(176, 150, 255, 0.16), transparent 32%),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.24));
+    radial-gradient(circle at 42% 36%, rgba(167, 139, 250, 0.22), transparent 28rem),
+    radial-gradient(circle at 72% 80%, rgba(59, 130, 246, 0.12), transparent 26rem);
+  filter: blur(14px);
+  opacity: 0.86;
   pointer-events: none;
 }
 
-.aww-collage-video {
+.aww-approach-image {
+  position: relative;
+  overflow: hidden;
+  margin: 0;
+  --spotlight-x: 50%;
+  --spotlight-y: 50%;
+  --spotlight-spread: 1;
+  --spotlight-skew: 0rem;
+  --spotlight-main-w: 9.4rem;
+  --spotlight-main-h: 6.4rem;
+  --spotlight-side-w: 5.1rem;
+  --spotlight-side-h: 3.8rem;
+  --spotlight-lower-x: 0rem;
+  --spotlight-lower-y: 0rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.035);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.36),
+    inset 0 1px rgba(255, 255, 255, 0.1);
+  isolation: isolate;
+}
+
+.aww-approach-image::before {
+  content: "";
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  filter: saturate(1.02) contrast(1.04);
+  z-index: 2;
+  background:
+    radial-gradient(ellipse at var(--spotlight-x) var(--spotlight-y), rgba(167, 139, 250, 0.16), transparent 0 28%),
+    linear-gradient(180deg, rgba(10, 8, 15, 0.18), rgba(0, 0, 0, 0.58)),
+    var(--approach-image) center / cover;
+  filter: grayscale(1) saturate(0.28) brightness(0.46) contrast(1.06) blur(5px);
+  transform: scale(1.045);
+  opacity: 0.82;
+  transition:
+    opacity 360ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 360ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 560ms cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.aww-approach-image::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.08), transparent 34%),
+    linear-gradient(0deg, rgba(0, 0, 0, 0.58), transparent 44%);
+  pointer-events: none;
+}
+
+.aww-approach-image .aww-approach-reveal {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: var(--approach-image) center / cover;
+  opacity: 0;
+  mask-image:
+    radial-gradient(ellipse var(--spotlight-main-w) var(--spotlight-main-h) at var(--spotlight-x) var(--spotlight-y), #000 0 55%, transparent 77%),
+    radial-gradient(ellipse var(--spotlight-side-w) var(--spotlight-side-h) at calc(var(--spotlight-x) + 4.4rem + var(--spotlight-skew)) calc(var(--spotlight-y) - 2.5rem), rgba(0, 0, 0, 0.82) 0 52%, transparent 78%),
+    radial-gradient(ellipse 4.3rem 5.8rem at calc(var(--spotlight-x) - 4.2rem - var(--spotlight-skew)) calc(var(--spotlight-y) + 3rem), rgba(0, 0, 0, 0.74) 0 49%, transparent 76%),
+    radial-gradient(ellipse 3rem 4.9rem at calc(var(--spotlight-x) + 1.3rem - var(--spotlight-skew) + var(--spotlight-lower-x)) calc(var(--spotlight-y) + 5.8rem + var(--spotlight-lower-y)), rgba(0, 0, 0, 0.55) 0 42%, transparent 74%);
+  -webkit-mask-image:
+    radial-gradient(ellipse var(--spotlight-main-w) var(--spotlight-main-h) at var(--spotlight-x) var(--spotlight-y), #000 0 55%, transparent 77%),
+    radial-gradient(ellipse var(--spotlight-side-w) var(--spotlight-side-h) at calc(var(--spotlight-x) + 4.4rem + var(--spotlight-skew)) calc(var(--spotlight-y) - 2.5rem), rgba(0, 0, 0, 0.82) 0 52%, transparent 78%),
+    radial-gradient(ellipse 4.3rem 5.8rem at calc(var(--spotlight-x) - 4.2rem - var(--spotlight-skew)) calc(var(--spotlight-y) + 3rem), rgba(0, 0, 0, 0.74) 0 49%, transparent 76%),
+    radial-gradient(ellipse 3rem 4.9rem at calc(var(--spotlight-x) + 1.3rem - var(--spotlight-skew) + var(--spotlight-lower-x)) calc(var(--spotlight-y) + 5.8rem + var(--spotlight-lower-y)), rgba(0, 0, 0, 0.55) 0 42%, transparent 74%);
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  transition:
+    opacity 300ms cubic-bezier(0.16, 1, 0.3, 1),
+    mask-image 520ms cubic-bezier(0.16, 1, 0.3, 1),
+    -webkit-mask-image 520ms cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.aww-approach-image img {
+  opacity: 0.58;
+  transform: scale(1.01);
+  filter: grayscale(0.95) saturate(0.38) brightness(0.5) contrast(1.08);
+  transition:
+    opacity 360ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 1000ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 1000ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.aww-approach-image:hover::before {
+  opacity: 0.72;
+  filter: grayscale(1) saturate(0.26) brightness(0.38) contrast(1.08) blur(7px);
+  transform: scale(1.065);
+}
+
+.aww-approach-image:hover img {
+  opacity: 0.48;
+  transform: scale(1.018);
+  filter: grayscale(0.92) saturate(0.44) brightness(0.44) contrast(1.08);
+}
+
+.aww-approach-image:hover .aww-approach-reveal {
+  opacity: 1;
+}
+
+.aww-approach-image.is-primary {
+  grid-row: 1 / span 2;
+}
+
+.aww-approach-image.is-secondary,
+.aww-approach-image.is-tertiary {
+  min-height: 0;
+}
+
+.aww-approach-image figcaption {
+  position: absolute;
+  left: clamp(16px, 1.5vw, 24px);
+  right: clamp(16px, 1.5vw, 24px);
+  bottom: clamp(16px, 1.5vw, 24px);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  color: #fff;
+}
+
+.aww-approach-image figcaption span {
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.aww-approach-image figcaption strong {
+  font-size: clamp(1.05rem, 1.55vw, 1.8rem);
+  font-weight: 430;
+  letter-spacing: -0.035em;
+}
+
+.aww-approach-image.is-primary figcaption strong {
+  font-size: clamp(1.4rem, 2.2vw, 2.8rem);
+}
+
+.aww-approach-image.is-secondary img {
+  object-position: center 62%;
+}
+
+.aww-approach-image.is-tertiary img {
+  object-position: center;
 }
 
 .aww-work-label {
@@ -2399,9 +2596,9 @@ a {
     height: 620px;
   }
 
-  .aww-collage {
+  .aww-approach-gallery {
     width: 90vw;
-    height: 54vh;
+    height: min(72vh, 720px);
   }
 
   .aww-approach {
@@ -2442,19 +2639,81 @@ a {
     text-shadow: 0 18px 46px rgba(0, 0, 0, 0.38);
   }
 
-  .aww-approach .aww-collage {
+  .aww-approach .aww-approach-gallery {
     position: relative;
     z-index: 1;
-    top: auto;
-    width: calc(100% - 40px) !important;
-    height: 280px !important;
+    display: flex;
+    grid-template-columns: none;
+    grid-template-rows: none;
+    width: 100% !important;
+    height: auto !important;
     margin-top: 42px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: 20px;
+    scroll-snap-type: x mandatory;
+    gap: 14px;
+    padding: 0 20px 18px;
     transform: none !important;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 18px !important;
-    box-shadow:
-      0 28px 80px rgba(0, 0, 0, 0.52),
-      0 0 70px rgba(124, 58, 237, 0.16);
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .aww-approach .aww-approach-gallery::-webkit-scrollbar {
+    display: none;
+  }
+
+  .aww-approach .aww-approach-gallery::before {
+    inset: 10% 16px 0;
+    opacity: 0.54;
+  }
+
+  .aww-approach-image,
+  .aww-approach-image.is-primary,
+  .aww-approach-image.is-secondary,
+  .aww-approach-image.is-tertiary {
+    flex: 0 0 min(82vw, 390px);
+    grid-row: auto;
+    min-height: 0;
+    scroll-snap-align: center;
+    aspect-ratio: 4 / 5.15;
+    border-radius: 18px;
+  }
+
+  .aww-approach-image.is-secondary,
+  .aww-approach-image.is-tertiary {
+    aspect-ratio: 4 / 5.15;
+  }
+
+  .aww-approach-image::before {
+    opacity: 0;
+  }
+
+  .aww-approach-image .aww-approach-reveal {
+    display: none;
+  }
+
+  .aww-approach-image img {
+    opacity: 1;
+    transform: scale(1);
+    filter: none;
+  }
+
+  .aww-approach-image::after {
+    background:
+      linear-gradient(180deg, rgba(0, 0, 0, 0.04), transparent 30%),
+      linear-gradient(0deg, rgba(0, 0, 0, 0.62), transparent 48%);
+  }
+
+  .aww-approach-image figcaption {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+  }
+
+  .aww-approach-image figcaption strong,
+  .aww-approach-image.is-primary figcaption strong {
+    font-size: clamp(1.2rem, 6.2vw, 1.75rem);
   }
 
   .aww-approach + .aww-dark-section {
@@ -2463,6 +2722,26 @@ a {
       radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.16), transparent 20rem),
       radial-gradient(circle at 8% 30%, rgba(59, 130, 246, 0.1), transparent 18rem),
       linear-gradient(180deg, #09051c 0%, #06020f 46%, #080413 100%) !important;
+  }
+
+  .aww-clubs-section {
+    padding-top: 44px !important;
+    padding-bottom: 76px !important;
+  }
+
+  .aww-clubs-section > div:first-child {
+    margin-bottom: 24px !important;
+    padding-inline: 12px;
+  }
+
+  .aww-clubs-section .aww-section-title {
+    max-width: 92%;
+    line-height: 1.08;
+  }
+
+  .aww-clubs-section [class*="overflow-hidden"] {
+    margin-inline: 10px;
+    border-radius: 18px;
   }
 
   .aww-news {

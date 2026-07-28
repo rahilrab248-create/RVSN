@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight, Footprints, Mail, PackageCheck, Shirt, Trophy } from "lucide-react";
-import { motion, useInView, useMotionTemplate, useScroll, useTransform, type MotionValue, type Variants } from "framer-motion";
+import { motion, useMotionTemplate, useScroll, useTransform, type MotionValue, type Variants } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
@@ -10,7 +10,6 @@ import { ProductShowcaseCard } from "@/components/home/product-showcase-card";
 import { popularClubs, trendingJerseys, type ShowcaseItem } from "@/config/home";
 
 const ease = [0.16, 1, 0.3, 1] as const;
-const approachVideoSrc = "/videos/hero/football-hero-720p.mp4";
 const approachStatement = "We combine football taste, product clarity and cinematic motion to create a store that feels built for the tunnel.";
 const mobileHeroSlideDuration = 7800;
 const mobileHeroSlides = [
@@ -167,17 +166,135 @@ const insights = [
   },
 ];
 
+const approachImages = [
+  {
+    title: "Jersey edits",
+    label: "01",
+    image: "/images/approach/rvsn-approach-jersey-drops.png",
+    className: "is-primary",
+  },
+  {
+    title: "Boot room",
+    label: "02",
+    image: "/images/approach/rvsn-approach-boot-room.png",
+    className: "is-secondary",
+  },
+  {
+    title: "Club energy",
+    label: "03",
+    image: "/images/approach/rvsn-approach-club-energy.png",
+    className: "is-tertiary",
+  },
+];
+
+type ApproachSpotlightState = {
+  currentX: number;
+  currentY: number;
+  currentSpread: number;
+  currentSkew: number;
+  currentMainW: number;
+  currentMainH: number;
+  currentSideW: number;
+  currentSideH: number;
+  isActive: boolean;
+  targetX: number;
+  targetY: number;
+  targetSpread: number;
+  targetSkew: number;
+  targetMainW: number;
+  targetMainH: number;
+  targetSideW: number;
+  targetSideH: number;
+  frame: number | null;
+};
+
+const approachSpotlights = new WeakMap<HTMLElement, ApproachSpotlightState>();
+
+function getApproachSpotlightState(element: HTMLElement) {
+  let state = approachSpotlights.get(element);
+
+  if (!state) {
+    state = {
+      currentX: 50,
+      currentY: 50,
+      currentSpread: 1,
+      currentSkew: 0,
+      currentMainW: 9.4,
+      currentMainH: 6.4,
+      currentSideW: 5.1,
+      currentSideH: 3.8,
+      isActive: false,
+      targetX: 50,
+      targetY: 50,
+      targetSpread: 1,
+      targetSkew: 0,
+      targetMainW: 9.4,
+      targetMainH: 6.4,
+      targetSideW: 5.1,
+      targetSideH: 3.8,
+      frame: null,
+    };
+    approachSpotlights.set(element, state);
+  }
+
+  return state;
+}
+
+function animateApproachSpotlight(element: HTMLElement, state: ApproachSpotlightState) {
+  const phase = performance.now() * 0.001;
+  const shapePulse = state.isActive ? 1 : 0;
+
+  state.currentX += (state.targetX - state.currentX) * 0.12;
+  state.currentY += (state.targetY - state.currentY) * 0.12;
+  state.currentSpread += (state.targetSpread - state.currentSpread) * 0.1;
+  state.currentSkew += (state.targetSkew - state.currentSkew) * 0.1;
+  state.currentMainW += (state.targetMainW - state.currentMainW) * 0.1;
+  state.currentMainH += (state.targetMainH - state.currentMainH) * 0.1;
+  state.currentSideW += (state.targetSideW - state.currentSideW) * 0.1;
+  state.currentSideH += (state.targetSideH - state.currentSideH) * 0.1;
+
+  const mainW = state.currentMainW + Math.sin(phase * 1.55 + state.currentY * 0.025) * 0.88 * shapePulse;
+  const mainH = state.currentMainH + Math.cos(phase * 1.25 + state.currentX * 0.022) * 0.74 * shapePulse;
+  const sideW = state.currentSideW + Math.cos(phase * 1.8 + state.currentX * 0.018) * 0.62 * shapePulse;
+  const sideH = state.currentSideH + Math.sin(phase * 1.7 + state.currentY * 0.02) * 0.68 * shapePulse;
+  const skew = state.currentSkew + Math.sin(phase * 1.15 + state.currentX * 0.015) * 0.95 * shapePulse;
+  const lowerX = Math.cos(phase * 1.35 + state.currentY * 0.018) * 1.35 * shapePulse;
+  const lowerY = Math.sin(phase * 1.2 + state.currentX * 0.016) * 1.15 * shapePulse;
+
+  element.style.setProperty("--spotlight-x", `${state.currentX.toFixed(2)}%`);
+  element.style.setProperty("--spotlight-y", `${state.currentY.toFixed(2)}%`);
+  element.style.setProperty("--spotlight-spread", state.currentSpread.toFixed(3));
+  element.style.setProperty("--spotlight-skew", `${skew.toFixed(2)}rem`);
+  element.style.setProperty("--spotlight-main-w", `${Math.max(7.2, mainW).toFixed(2)}rem`);
+  element.style.setProperty("--spotlight-main-h", `${Math.max(4.8, mainH).toFixed(2)}rem`);
+  element.style.setProperty("--spotlight-side-w", `${Math.max(3.2, sideW).toFixed(2)}rem`);
+  element.style.setProperty("--spotlight-side-h", `${Math.max(2.7, sideH).toFixed(2)}rem`);
+  element.style.setProperty("--spotlight-lower-x", `${lowerX.toFixed(2)}rem`);
+  element.style.setProperty("--spotlight-lower-y", `${lowerY.toFixed(2)}rem`);
+
+  const isSettled =
+    Math.abs(state.targetX - state.currentX) < 0.08 &&
+    Math.abs(state.targetY - state.currentY) < 0.08 &&
+    Math.abs(state.targetSpread - state.currentSpread) < 0.004 &&
+    Math.abs(state.targetSkew - state.currentSkew) < 0.01 &&
+    Math.abs(state.targetMainW - state.currentMainW) < 0.01 &&
+    Math.abs(state.targetMainH - state.currentMainH) < 0.01 &&
+    Math.abs(state.targetSideW - state.currentSideW) < 0.01 &&
+    Math.abs(state.targetSideH - state.currentSideH) < 0.01;
+
+  if (isSettled && !state.isActive) {
+    state.frame = null;
+    return;
+  }
+
+  state.frame = window.requestAnimationFrame(() => animateApproachSpotlight(element, state));
+}
+
 export function HomePage() {
   const approachRef = useRef<HTMLElement | null>(null);
-  const approachVideoRef = useRef<HTMLVideoElement | null>(null);
-  const approachVideoShellRef = useRef<HTMLDivElement | null>(null);
-  const isApproachVideoInView = useInView(approachVideoShellRef, { amount: 0.35 });
   const { scrollYProgress } = useScroll({ target: approachRef, offset: ["start end", "end start"] });
-  const collageScale = useTransform(scrollYProgress, [0.12, 0.34, 0.58], [0.82, 0.94, 1]);
-  const collageOpacity = useTransform(scrollYProgress, [0, 0.12, 0.82], [0.5, 1, 1]);
-  const collageHeight = useTransform(scrollYProgress, [0.18, 0.58], ["54vh", "100vh"]);
-  const collageWidth = useTransform(scrollYProgress, [0.18, 0.58], ["90vw", "100vw"]);
-  const collageRadius = useTransform(scrollYProgress, [0.2, 0.58], ["12px", "0px"]);
+  const approachGalleryY = useTransform(scrollYProgress, [0.1, 0.72], ["32px", "-28px"]);
+  const approachGalleryScale = useTransform(scrollYProgress, [0.12, 0.52], [0.98, 1]);
   const approachBackgroundChannel = useTransform(scrollYProgress, [0.36, 0.66], [14, 2]);
   const approachVioletAlpha = useTransform(scrollYProgress, [0.12, 0.48, 0.82], [0.3, 0.44, 0.2]);
   const approachBlueAlpha = useTransform(scrollYProgress, [0.18, 0.54, 0.82], [0.14, 0.24, 0.11]);
@@ -190,19 +307,49 @@ export function HomePage() {
     linear-gradient(180deg, #080413 0%, rgb(${approachBackgroundChannel}, ${approachBackgroundChannel}, ${approachBackgroundChannel}) 54%, #020106 100%)
   `;
 
-  useEffect(() => {
-    const video = approachVideoRef.current;
+  function moveApproachSpotlight(event: PointerEvent<HTMLElement>) {
+    const target = event.currentTarget;
+    const rect = target.getBoundingClientRect();
+    const state = getApproachSpotlightState(target);
+    const x = ((event.clientX - rect.left) / rect.width) * 100;
+    const y = ((event.clientY - rect.top) / rect.height) * 100;
+    const centerPull = Math.hypot(x - 50, y - 50) / 70;
 
-    if (!video) {
-      return;
-    }
+    state.targetX = x;
+    state.targetY = y;
+    state.targetSpread = 0.92 + Math.min(centerPull, 1) * 0.32 + Math.sin((x + y) * 0.08) * 0.06;
+    state.targetSkew = Math.sin(x * 0.075) * 1.45 + Math.cos(y * 0.06) * 0.9;
+    state.targetMainW = 8.8 + state.targetSpread * 1.75 + Math.sin(y * 0.11) * 0.72;
+    state.targetMainH = 6.1 + (1.24 - state.targetSpread) * 2 + Math.cos(x * 0.09) * 0.54;
+    state.targetSideW = 4.7 + Math.cos((x + y) * 0.06) * 0.88;
+    state.targetSideH = 3.5 + Math.sin((x - y) * 0.07) * 0.82;
 
-    if (isApproachVideoInView) {
-      void video.play().catch(() => undefined);
-    } else {
-      video.pause();
+    if (state.frame === null) {
+      state.frame = window.requestAnimationFrame(() => animateApproachSpotlight(target, state));
     }
-  }, [isApproachVideoInView]);
+  }
+
+  function activateApproachSpotlight(event: PointerEvent<HTMLElement>) {
+    const target = event.currentTarget;
+    const state = getApproachSpotlightState(target);
+
+    state.isActive = true;
+
+    if (state.frame === null) {
+      state.frame = window.requestAnimationFrame(() => animateApproachSpotlight(target, state));
+    }
+  }
+
+  function deactivateApproachSpotlight(event: PointerEvent<HTMLElement>) {
+    const target = event.currentTarget;
+    const state = getApproachSpotlightState(target);
+
+    state.isActive = false;
+
+    if (state.frame === null) {
+      state.frame = window.requestAnimationFrame(() => animateApproachSpotlight(target, state));
+    }
+  }
 
   return (
     <main className="aww-page text-white">
@@ -269,22 +416,44 @@ export function HomePage() {
           <ScrollRevealStatement text={approachStatement} progress={scrollYProgress} />
         </motion.div>
         <motion.div
-          ref={approachVideoShellRef}
-          style={{ scale: collageScale, opacity: collageOpacity, height: collageHeight, width: collageWidth, borderRadius: collageRadius }}
-          className="aww-collage"
+          style={{ y: approachGalleryY, scale: approachGalleryScale }}
+          className="aww-approach-gallery"
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.24 }}
+          variants={{
+            hidden: {},
+            show: { transition: { staggerChildren: 0.08 } },
+          }}
         >
-          <video
-            ref={approachVideoRef}
-            className="aww-collage-video"
-            muted
-            loop
-            playsInline
-            preload="metadata"
-            poster="/images/hero/hero-football-store.png"
-            aria-label="Cinematic football product campaign video"
-          >
-            <source src={approachVideoSrc} type="video/mp4" />
-          </video>
+          {approachImages.map((item, index) => (
+            <motion.figure
+              key={item.title}
+              className={`aww-approach-image ${item.className}`}
+              style={{ "--approach-image": `url(${item.image})` } as CSSProperties}
+              onPointerEnter={activateApproachSpotlight}
+              onPointerMove={moveApproachSpotlight}
+              onPointerLeave={deactivateApproachSpotlight}
+              variants={{
+                hidden: { opacity: 0, clipPath: "inset(18% 0 18% 0)", filter: "blur(10px)", y: 32, scale: 0.985 },
+                show: {
+                  opacity: 1,
+                  clipPath: "inset(0 0 0 0)",
+                  filter: "blur(0px)",
+                  y: 0,
+                  scale: 1,
+                  transition: { duration: 0.82, ease, delay: index * 0.02 },
+                },
+              }}
+            >
+              <Image src={item.image} alt={item.title} fill sizes="(max-width: 900px) 92vw, 42vw" className="object-cover" />
+              <span className="aww-approach-reveal" aria-hidden="true" />
+              <figcaption>
+                <span>{item.label}</span>
+                <strong>{item.title}</strong>
+              </figcaption>
+            </motion.figure>
+          ))}
         </motion.div>
       </motion.section>
 
@@ -302,7 +471,7 @@ export function HomePage() {
         </Link>
       </section>
 
-      <section id="clubs" className="aww-dark-section !pt-0">
+      <section id="clubs" className="aww-dark-section aww-clubs-section !pt-0">
         <motion.div variants={reveal} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-8%" }} className="mb-8">
           <p className="aww-section-eyebrow">Popular clubs</p>
           <h2 className="aww-section-title">Club shops in constant motion.</h2>
