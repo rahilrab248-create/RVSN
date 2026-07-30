@@ -1,7 +1,9 @@
 "use client";
 
 import { ArrowRight, Footprints, Mail, PackageCheck, Shirt, Trophy } from "lucide-react";
-import { motion, useMotionTemplate, useScroll, useTransform, type MotionValue, type Variants } from "framer-motion";
+import { motion, useScroll, useTransform, type Variants } from "framer-motion";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
@@ -187,170 +189,7 @@ const approachImages = [
   },
 ];
 
-type ApproachSpotlightState = {
-  currentX: number;
-  currentY: number;
-  currentSpread: number;
-  currentSkew: number;
-  currentMainW: number;
-  currentMainH: number;
-  currentSideW: number;
-  currentSideH: number;
-  isActive: boolean;
-  targetX: number;
-  targetY: number;
-  targetSpread: number;
-  targetSkew: number;
-  targetMainW: number;
-  targetMainH: number;
-  targetSideW: number;
-  targetSideH: number;
-  frame: number | null;
-};
-
-const approachSpotlights = new WeakMap<HTMLElement, ApproachSpotlightState>();
-
-function getApproachSpotlightState(element: HTMLElement) {
-  let state = approachSpotlights.get(element);
-
-  if (!state) {
-    state = {
-      currentX: 50,
-      currentY: 50,
-      currentSpread: 1,
-      currentSkew: 0,
-      currentMainW: 9.4,
-      currentMainH: 6.4,
-      currentSideW: 5.1,
-      currentSideH: 3.8,
-      isActive: false,
-      targetX: 50,
-      targetY: 50,
-      targetSpread: 1,
-      targetSkew: 0,
-      targetMainW: 9.4,
-      targetMainH: 6.4,
-      targetSideW: 5.1,
-      targetSideH: 3.8,
-      frame: null,
-    };
-    approachSpotlights.set(element, state);
-  }
-
-  return state;
-}
-
-function animateApproachSpotlight(element: HTMLElement, state: ApproachSpotlightState) {
-  const phase = performance.now() * 0.001;
-  const shapePulse = state.isActive ? 1 : 0;
-
-  state.currentX += (state.targetX - state.currentX) * 0.12;
-  state.currentY += (state.targetY - state.currentY) * 0.12;
-  state.currentSpread += (state.targetSpread - state.currentSpread) * 0.1;
-  state.currentSkew += (state.targetSkew - state.currentSkew) * 0.1;
-  state.currentMainW += (state.targetMainW - state.currentMainW) * 0.1;
-  state.currentMainH += (state.targetMainH - state.currentMainH) * 0.1;
-  state.currentSideW += (state.targetSideW - state.currentSideW) * 0.1;
-  state.currentSideH += (state.targetSideH - state.currentSideH) * 0.1;
-
-  const mainW = state.currentMainW + Math.sin(phase * 1.55 + state.currentY * 0.025) * 0.88 * shapePulse;
-  const mainH = state.currentMainH + Math.cos(phase * 1.25 + state.currentX * 0.022) * 0.74 * shapePulse;
-  const sideW = state.currentSideW + Math.cos(phase * 1.8 + state.currentX * 0.018) * 0.62 * shapePulse;
-  const sideH = state.currentSideH + Math.sin(phase * 1.7 + state.currentY * 0.02) * 0.68 * shapePulse;
-  const skew = state.currentSkew + Math.sin(phase * 1.15 + state.currentX * 0.015) * 0.95 * shapePulse;
-  const lowerX = Math.cos(phase * 1.35 + state.currentY * 0.018) * 1.35 * shapePulse;
-  const lowerY = Math.sin(phase * 1.2 + state.currentX * 0.016) * 1.15 * shapePulse;
-
-  element.style.setProperty("--spotlight-x", `${state.currentX.toFixed(2)}%`);
-  element.style.setProperty("--spotlight-y", `${state.currentY.toFixed(2)}%`);
-  element.style.setProperty("--spotlight-spread", state.currentSpread.toFixed(3));
-  element.style.setProperty("--spotlight-skew", `${skew.toFixed(2)}rem`);
-  element.style.setProperty("--spotlight-main-w", `${Math.max(7.2, mainW).toFixed(2)}rem`);
-  element.style.setProperty("--spotlight-main-h", `${Math.max(4.8, mainH).toFixed(2)}rem`);
-  element.style.setProperty("--spotlight-side-w", `${Math.max(3.2, sideW).toFixed(2)}rem`);
-  element.style.setProperty("--spotlight-side-h", `${Math.max(2.7, sideH).toFixed(2)}rem`);
-  element.style.setProperty("--spotlight-lower-x", `${lowerX.toFixed(2)}rem`);
-  element.style.setProperty("--spotlight-lower-y", `${lowerY.toFixed(2)}rem`);
-
-  const isSettled =
-    Math.abs(state.targetX - state.currentX) < 0.08 &&
-    Math.abs(state.targetY - state.currentY) < 0.08 &&
-    Math.abs(state.targetSpread - state.currentSpread) < 0.004 &&
-    Math.abs(state.targetSkew - state.currentSkew) < 0.01 &&
-    Math.abs(state.targetMainW - state.currentMainW) < 0.01 &&
-    Math.abs(state.targetMainH - state.currentMainH) < 0.01 &&
-    Math.abs(state.targetSideW - state.currentSideW) < 0.01 &&
-    Math.abs(state.targetSideH - state.currentSideH) < 0.01;
-
-  if (isSettled && !state.isActive) {
-    state.frame = null;
-    return;
-  }
-
-  state.frame = window.requestAnimationFrame(() => animateApproachSpotlight(element, state));
-}
-
 export function HomePage() {
-  const approachRef = useRef<HTMLElement | null>(null);
-  const { scrollYProgress } = useScroll({ target: approachRef, offset: ["start end", "end start"] });
-  const approachGalleryY = useTransform(scrollYProgress, [0.1, 0.72], ["32px", "-28px"]);
-  const approachGalleryScale = useTransform(scrollYProgress, [0.12, 0.52], [0.98, 1]);
-  const approachBackgroundChannel = useTransform(scrollYProgress, [0.36, 0.66], [14, 2]);
-  const approachVioletAlpha = useTransform(scrollYProgress, [0.12, 0.48, 0.82], [0.3, 0.44, 0.2]);
-  const approachBlueAlpha = useTransform(scrollYProgress, [0.18, 0.54, 0.82], [0.14, 0.24, 0.11]);
-  const approachTextChannel = useTransform(scrollYProgress, [0.44, 0.62], [255, 255]);
-  const approachPlainTextColor = useMotionTemplate`rgb(${approachTextChannel}, ${approachTextChannel}, ${approachTextChannel})`;
-  const approachBackground = useMotionTemplate`
-    radial-gradient(circle at 50% 58%, rgba(124, 58, 237, ${approachVioletAlpha}), transparent 44rem),
-    radial-gradient(circle at 16% 44%, rgba(59, 130, 246, ${approachBlueAlpha}), transparent 34rem),
-    radial-gradient(circle at 84% 78%, rgba(168, 85, 247, 0.12), transparent 30rem),
-    linear-gradient(180deg, #080413 0%, rgb(${approachBackgroundChannel}, ${approachBackgroundChannel}, ${approachBackgroundChannel}) 54%, #020106 100%)
-  `;
-
-  function moveApproachSpotlight(event: PointerEvent<HTMLElement>) {
-    const target = event.currentTarget;
-    const rect = target.getBoundingClientRect();
-    const state = getApproachSpotlightState(target);
-    const x = ((event.clientX - rect.left) / rect.width) * 100;
-    const y = ((event.clientY - rect.top) / rect.height) * 100;
-    const centerPull = Math.hypot(x - 50, y - 50) / 70;
-
-    state.targetX = x;
-    state.targetY = y;
-    state.targetSpread = 0.92 + Math.min(centerPull, 1) * 0.32 + Math.sin((x + y) * 0.08) * 0.06;
-    state.targetSkew = Math.sin(x * 0.075) * 1.45 + Math.cos(y * 0.06) * 0.9;
-    state.targetMainW = 8.8 + state.targetSpread * 1.75 + Math.sin(y * 0.11) * 0.72;
-    state.targetMainH = 6.1 + (1.24 - state.targetSpread) * 2 + Math.cos(x * 0.09) * 0.54;
-    state.targetSideW = 4.7 + Math.cos((x + y) * 0.06) * 0.88;
-    state.targetSideH = 3.5 + Math.sin((x - y) * 0.07) * 0.82;
-
-    if (state.frame === null) {
-      state.frame = window.requestAnimationFrame(() => animateApproachSpotlight(target, state));
-    }
-  }
-
-  function activateApproachSpotlight(event: PointerEvent<HTMLElement>) {
-    const target = event.currentTarget;
-    const state = getApproachSpotlightState(target);
-
-    state.isActive = true;
-
-    if (state.frame === null) {
-      state.frame = window.requestAnimationFrame(() => animateApproachSpotlight(target, state));
-    }
-  }
-
-  function deactivateApproachSpotlight(event: PointerEvent<HTMLElement>) {
-    const target = event.currentTarget;
-    const state = getApproachSpotlightState(target);
-
-    state.isActive = false;
-
-    if (state.frame === null) {
-      state.frame = window.requestAnimationFrame(() => animateApproachSpotlight(target, state));
-    }
-  }
-
   return (
     <main className="aww-page text-white">
       <section id="hero" className="aww-hero">
@@ -410,52 +249,7 @@ export function HomePage() {
         </div>
       </section>
 
-      <motion.section ref={approachRef} id="about" className="aww-approach" style={{ background: approachBackground, color: approachPlainTextColor }}>
-        <motion.div className="aww-approach-copy" variants={reveal} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-10%" }}>
-          <p className="aww-section-eyebrow">Our approach and values</p>
-          <ScrollRevealStatement text={approachStatement} progress={scrollYProgress} />
-        </motion.div>
-        <motion.div
-          style={{ y: approachGalleryY, scale: approachGalleryScale }}
-          className="aww-approach-gallery"
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, amount: 0.24 }}
-          variants={{
-            hidden: {},
-            show: { transition: { staggerChildren: 0.08 } },
-          }}
-        >
-          {approachImages.map((item, index) => (
-            <motion.figure
-              key={item.title}
-              className={`aww-approach-image ${item.className}`}
-              style={{ "--approach-image": `url(${item.image})` } as CSSProperties}
-              onPointerEnter={activateApproachSpotlight}
-              onPointerMove={moveApproachSpotlight}
-              onPointerLeave={deactivateApproachSpotlight}
-              variants={{
-                hidden: { opacity: 0, clipPath: "inset(18% 0 18% 0)", filter: "blur(10px)", y: 32, scale: 0.985 },
-                show: {
-                  opacity: 1,
-                  clipPath: "inset(0 0 0 0)",
-                  filter: "blur(0px)",
-                  y: 0,
-                  scale: 1,
-                  transition: { duration: 0.82, ease, delay: index * 0.02 },
-                },
-              }}
-            >
-              <Image src={item.image} alt={item.title} fill sizes="(max-width: 900px) 92vw, 42vw" className="object-cover" />
-              <span className="aww-approach-reveal" aria-hidden="true" />
-              <figcaption>
-                <span>{item.label}</span>
-                <strong>{item.title}</strong>
-              </figcaption>
-            </motion.figure>
-          ))}
-        </motion.div>
-      </motion.section>
+      <ApproachPinnedSection />
 
       <section id="portfolio" className="aww-dark-section aww-approach-continuation">
         <motion.p custom={0} variants={lineReveal} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-12%" }} className="aww-section-eyebrow aww-work-label overflow-hidden">
@@ -549,6 +343,163 @@ export function HomePage() {
         </motion.form>
       </section>
     </main>
+  );
+}
+
+function ApproachPinnedSection() {
+  const sectionRef = useRef<HTMLElement | null>(null);
+  const stickyRef = useRef<HTMLDivElement | null>(null);
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const ghostRef = useRef<HTMLDivElement | null>(null);
+  const activeIndexRef = useRef(0);
+  const progressRefs = useRef<Array<HTMLSpanElement | null>>([]);
+  const words = approachStatement.split(" ");
+
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+
+    const section = sectionRef.current;
+    const sticky = stickyRef.current;
+    const track = trackRef.current;
+    const ghost = ghostRef.current;
+
+    if (!section || !sticky || !track || !ghost) {
+      return;
+    }
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const context = gsap.context(() => {
+      const wordNodes = gsap.utils.toArray<HTMLElement>(".aww-approach-word", sticky);
+      const cards = gsap.utils.toArray<HTMLElement>(".aww-approach-card", sticky);
+      const imageMasks = gsap.utils.toArray<HTMLElement>(".aww-approach-card-image", sticky);
+      const titles = gsap.utils.toArray<HTMLElement>(".aww-approach-card-title", sticky);
+      const progressBars = progressRefs.current.filter(Boolean) as HTMLSpanElement[];
+      const stage = sticky.querySelector<HTMLElement>(".aww-approach-stage");
+      const isMobile = window.matchMedia("(max-width: 767px)").matches;
+
+      section.style.setProperty("--approach-scroll-height", isMobile ? "220vh" : "330vh");
+      ghost.textContent = "01";
+
+      gsap.set(".aww-approach-eyebrow", { opacity: 0, y: 18 });
+      gsap.set(wordNodes, { opacity: 0, y: 30, filter: "blur(10px)" });
+      gsap.set(cards, { opacity: 0.35, scale: 0.9, rotateY: -8, transformOrigin: "50% 55%" });
+      gsap.set(imageMasks, { clipPath: "inset(0% 0% 100% 0%)" });
+      gsap.set(titles, { opacity: 0, y: 22 });
+      gsap.set(progressBars, { scaleX: 0, transformOrigin: "left center" });
+
+      if (reduceMotion) {
+        gsap.set(".aww-approach-eyebrow", { opacity: 1, y: 0 });
+        gsap.set(wordNodes, { opacity: 1, y: 0, filter: "blur(0px)" });
+        gsap.set(cards, { opacity: 1, scale: 1, rotateY: 0 });
+        gsap.set(imageMasks, { clipPath: "inset(0% 0% 0% 0%)" });
+        gsap.set(titles, { opacity: 1, y: 0 });
+        gsap.set(progressBars, { scaleX: 1 });
+        return;
+      }
+
+      const updateProgress = (progress: number) => {
+        const cardProgress = gsap.utils.clamp(0, 1, (progress - 0.28) / 0.68);
+        const nextIndex = gsap.utils.clamp(0, approachImages.length - 1, Math.floor(cardProgress * approachImages.length));
+
+        if (nextIndex !== activeIndexRef.current) {
+          activeIndexRef.current = nextIndex;
+          ghost.textContent = approachImages[nextIndex]?.label ?? "01";
+        }
+
+        progressBars.forEach((bar, index) => {
+          const fill = gsap.utils.clamp(0, 1, cardProgress * approachImages.length - index);
+          gsap.set(bar, { scaleX: fill });
+        });
+      };
+
+      const getTrackX = () => {
+        if (!stage) return 0;
+        return -Math.max(0, track.scrollWidth - stage.clientWidth);
+      };
+
+      const timeline = gsap.timeline({
+        defaults: { ease: "power2.out" },
+        scrollTrigger: {
+          trigger: section,
+          start: "top top",
+          end: () => `+=${Math.max(1, section.offsetHeight - window.innerHeight)}`,
+          pin: sticky,
+          pinSpacing: false,
+          anticipatePin: 1,
+          scrub: isMobile ? 0.55 : 0.75,
+          invalidateOnRefresh: true,
+          onUpdate: (self) => updateProgress(self.progress),
+        },
+      });
+
+      timeline
+        .to(".aww-approach-eyebrow", { opacity: 1, y: 0, duration: 0.22 }, 0)
+        .to(wordNodes, { opacity: 1, y: 0, filter: "blur(0px)", stagger: 0.04, duration: 0.46 }, 0.08)
+        .to(track, { x: getTrackX, ease: "none", duration: 2.15 }, 0.62);
+
+      cards.forEach((card, index) => {
+        const start = 0.7 + index * 0.44;
+        const rotation = index % 2 === 0 ? -7 : 7;
+
+        timeline
+          .to(card, { opacity: 1, scale: 1, rotateY: 0, duration: 0.3 }, start)
+          .to(imageMasks[index], { clipPath: "inset(0% 0% 0% 0%)", duration: 0.36 }, start + 0.04)
+          .to(titles[index], { opacity: 1, y: 0, duration: 0.28 }, start + 0.14);
+
+        if (index < cards.length - 1) {
+          timeline
+            .to(card, { opacity: 0.35, scale: 0.92, rotateY: rotation, duration: 0.32 }, start + 0.42)
+            .to(titles[index], { opacity: 0.45, y: -8, duration: 0.22 }, start + 0.42);
+        }
+      });
+
+      ScrollTrigger.refresh();
+    }, section);
+
+    return () => context.revert();
+  }, []);
+
+  return (
+    <section ref={sectionRef} id="about" className="aww-approach" aria-label="Our approach and values">
+      <div ref={stickyRef} className="aww-approach-sticky">
+        <div className="aww-approach-grain" aria-hidden="true" />
+        <div ref={ghostRef} className="aww-approach-ghost" aria-hidden="true">
+          01
+        </div>
+        <div className="aww-approach-copy">
+          <p className="aww-section-eyebrow aww-approach-eyebrow">Our approach and values</p>
+          <h2 className="aww-big-statement aww-scroll-word-statement" aria-label={approachStatement}>
+            {words.map((word, index) => (
+              <span key={`${word}-${index}`} className="aww-approach-word" aria-hidden="true">
+                {word}
+              </span>
+            ))}
+          </h2>
+        </div>
+        <div className="aww-approach-stage">
+          <div ref={trackRef} className="aww-approach-track">
+            {approachImages.map((item) => (
+              <figure key={item.title} className="aww-approach-card">
+                <div className="aww-approach-card-image">
+                  <Image src={item.image} alt={item.title} fill sizes="(max-width: 767px) 78vw, 42vw" className="object-cover" />
+                </div>
+                <figcaption>
+                  <span>{item.label}</span>
+                  <strong className="aww-approach-card-title">{item.title}</strong>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+        <div className="aww-approach-progress" aria-hidden="true">
+          {approachImages.map((item, index) => (
+            <span key={item.title}>
+              <span ref={(node) => { progressRefs.current[index] = node; }} />
+            </span>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -650,32 +601,6 @@ function MobileHeroCarousel() {
         ))}
       </div>
     </div>
-  );
-}
-
-function ScrollRevealStatement({ text, progress }: { text: string; progress: MotionValue<number> }) {
-  const words = text.split(" ");
-
-  return (
-    <h2 className="aww-big-statement aww-scroll-word-statement" aria-label={text}>
-      {words.map((word, index) => (
-        <ScrollRevealWord key={`${word}-${index}`} word={word} index={index} total={words.length} progress={progress} />
-      ))}
-    </h2>
-  );
-}
-
-function ScrollRevealWord({ word, index, total, progress }: { word: string; index: number; total: number; progress: MotionValue<number> }) {
-  const start = 0.06 + (index / total) * 0.32;
-  const end = start + 0.14;
-  const opacity = useTransform(progress, [start, end], [0.42, 1]);
-  const y = useTransform(progress, [start, end], [10, 0]);
-  const filter = useTransform(progress, [start, end], ["blur(2.5px)", "blur(0px)"]);
-
-  return (
-    <motion.span aria-hidden="true" style={{ opacity, y, filter }}>
-      {word}
-    </motion.span>
   );
 }
 

@@ -3862,6 +3862,269 @@ a {
   }
 }
 
+.aww-approach {
+  --approach-scroll-height: 330vh;
+  position: relative;
+  min-height: var(--approach-scroll-height);
+  overflow: visible;
+  padding: 0;
+  background:
+    radial-gradient(circle at 50% 22%, rgba(139, 92, 246, 0.24), transparent 38rem),
+    radial-gradient(circle at 78% 46%, rgba(76, 29, 149, 0.24), transparent 34rem),
+    linear-gradient(180deg, #07050c 0%, #030206 100%);
+  color: #fff;
+}
+
+.aww-approach::before,
+.aww-approach::after {
+  content: none !important;
+}
+
+.aww-approach-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-rows: auto minmax(240px, 1fr) auto;
+  gap: clamp(14px, 2vw, 28px);
+  height: 100vh;
+  min-height: 640px;
+  overflow: hidden;
+  padding: clamp(64px, 7vh, 88px) clamp(18px, 5vw, 84px) clamp(18px, 3vh, 38px);
+  background:
+    radial-gradient(circle at 28% 24%, rgba(139, 92, 246, 0.18), transparent 30rem),
+    radial-gradient(circle at 64% 66%, rgba(76, 29, 149, 0.2), transparent 34rem),
+    linear-gradient(180deg, #07050c 0%, #05030a 100%);
+  isolation: isolate;
+}
+
+.aww-approach-sticky::before {
+  content: "";
+  position: absolute;
+  inset: -18% -10% auto -10%;
+  z-index: -1;
+  height: 58%;
+  background:
+    radial-gradient(circle at 34% 42%, rgba(139, 92, 246, 0.3), transparent 32rem),
+    radial-gradient(circle at 58% 12%, rgba(255, 255, 255, 0.06), transparent 26rem);
+  filter: blur(10px);
+  pointer-events: none;
+}
+
+.aww-approach-grain {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  opacity: 0.08;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23noise)' opacity='0.46'/%3E%3C/svg%3E");
+}
+
+.aww-approach-ghost {
+  position: absolute;
+  top: 50%;
+  right: -0.06em;
+  z-index: 0;
+  color: transparent;
+  font-size: clamp(12rem, 26vw, 34rem);
+  font-weight: 650;
+  line-height: 0.75;
+  letter-spacing: -0.08em;
+  opacity: 0.88;
+  transform: translateY(-50%);
+  -webkit-text-stroke: 1px rgba(139, 92, 246, 0.18);
+  text-shadow: none;
+  pointer-events: none;
+}
+
+.aww-approach-copy {
+  position: relative;
+  z-index: 2;
+  max-width: min(920px, 82vw);
+  padding-inline: 0;
+}
+
+.aww-approach-eyebrow {
+  opacity: 0;
+}
+
+.aww-approach .aww-big-statement {
+  max-width: 980px;
+  font-size: clamp(2.3rem, 4.75vw, 5.05rem);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+}
+
+.aww-approach-word {
+  display: inline-block;
+  will-change: transform, opacity, filter;
+}
+
+.aww-approach-stage {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  overflow: visible;
+  perspective: 1200px;
+  align-self: end;
+}
+
+.aww-approach-track {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  gap: clamp(18px, 3vw, 44px);
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.aww-approach-card {
+  position: relative;
+  flex: 0 0 clamp(300px, 34vw, 520px);
+  height: clamp(260px, 34vh, 420px);
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid rgba(139, 92, 246, 0.24);
+  border-radius: 18px;
+  background: #090612;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
+  transform-style: preserve-3d;
+  will-change: transform, opacity;
+}
+
+.aww-approach-card-image {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  clip-path: inset(0% 0% 100% 0%);
+  will-change: clip-path;
+}
+
+.aww-approach-card-image img {
+  transform: scale(1.04);
+  filter: saturate(0.96) contrast(1.04);
+}
+
+.aww-approach-card::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 1;
+  height: 58%;
+  background:
+    linear-gradient(180deg, transparent 0%, rgba(7, 5, 12, 0.72) 54%, rgba(7, 5, 12, 0.96) 100%),
+    radial-gradient(circle at 22% 92%, rgba(139, 92, 246, 0.2), transparent 18rem);
+  pointer-events: none;
+}
+
+.aww-approach-card figcaption {
+  position: absolute;
+  right: clamp(18px, 2vw, 28px);
+  bottom: clamp(18px, 2vw, 30px);
+  left: clamp(18px, 2vw, 28px);
+  z-index: 2;
+  color: #fff;
+}
+
+.aww-approach-card figcaption span {
+  display: block;
+  margin-bottom: 9px;
+  color: rgba(255, 255, 255, 0.54);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.aww-approach-card-title {
+  display: block;
+  font-size: clamp(1.5rem, 2.6vw, 3.2rem);
+  font-weight: 470;
+  line-height: 0.98;
+  letter-spacing: -0.05em;
+  opacity: 0;
+  transform: translateY(22px);
+  will-change: transform, opacity;
+}
+
+.aww-approach-progress {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  width: min(320px, 70vw);
+  gap: 10px;
+}
+
+.aww-approach-progress > span {
+  display: block;
+  flex: 1;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.aww-approach-progress > span > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #8b5cf6, #fff);
+  transform: scaleX(0);
+  transform-origin: left center;
+  will-change: transform;
+}
+
+@media (max-width: 767px) {
+  .aww-approach {
+    --approach-scroll-height: 220vh;
+  }
+
+  .aww-approach-sticky {
+    height: 100vh;
+    height: 100svh;
+    min-height: 0;
+    gap: 20px;
+    padding: 78px 18px 28px;
+  }
+
+  .aww-approach-copy {
+    max-width: 100%;
+  }
+
+  .aww-approach .aww-big-statement {
+    font-size: clamp(2rem, 8.6vw, 3.2rem);
+    line-height: 1;
+    letter-spacing: -0.04em;
+  }
+
+  .aww-approach-stage {
+    margin-inline: -18px;
+    overflow: visible;
+  }
+
+  .aww-approach-track {
+    gap: 16px;
+    padding-inline: 18px;
+  }
+
+  .aww-approach-card {
+    flex-basis: min(78vw, 330px);
+    height: min(54vh, 430px);
+    border-radius: 16px;
+  }
+
+  .aww-approach-ghost {
+    top: 58%;
+    right: -0.16em;
+    font-size: clamp(10rem, 48vw, 18rem);
+  }
+
+  .aww-approach-progress {
+    width: 100%;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
